@@ -18,7 +18,7 @@ const Dashboard = () => {
   const [searchForm, setSearchForm] = useState({
     location: "",
     businessType: "",
-    directory: "yellowpages"
+    directory: "all"
   });
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -30,6 +30,7 @@ const Dashboard = () => {
   } | null>(null);
 
   const directories = [
+    { value: "all", label: "All Directories", description: "Search across all sources simultaneously" },
     { value: "yellowpages", label: "Yellow Pages", description: "Comprehensive business directory" },
     { value: "yelp", label: "Yelp", description: "Local business reviews and info" },
     { value: "bbb", label: "Better Business Bureau", description: "Verified business profiles" },

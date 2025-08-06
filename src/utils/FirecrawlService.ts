@@ -60,7 +60,7 @@ export class FirecrawlService {
   static async searchBusinesses(
     location: string, 
     businessType: string,
-    directory: string = 'yellowpages'
+    directory: string = 'all'
   ): Promise<{ success: boolean; error?: string; data?: BusinessLead[] }> {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -72,34 +72,40 @@ export class FirecrawlService {
         this.firecrawlApp = new FirecrawlApp({ apiKey });
       }
 
-      // Construct search URLs for different directories
-      const searchUrls = this.getSearchUrls(location, businessType, directory);
+      // Search across all directories simultaneously if 'all' is selected
+      const directoriesToSearch = directory === 'all' 
+        ? ['yellowpages', 'yelp', 'bbb', 'google'] 
+        : [directory];
+      
       const allLeads: BusinessLead[] = [];
+      const searchPromises: Promise<void>[] = [];
 
-      for (const url of searchUrls) {
-        try {
-          console.log(`Crawling: ${url}`);
-          const crawlResponse = await this.firecrawlApp.crawlUrl(url, {
-            limit: 50,
-            scrapeOptions: {
-              formats: ['markdown', 'html'],
-              onlyMainContent: true
+      // Search all directories in parallel for maximum efficiency
+      for (const dir of directoriesToSearch) {
+        const searchUrls = this.getSearchUrls(location, businessType, dir);
+        
+        for (const url of searchUrls) {
+          const searchPromise = this.crawlUrl(url, dir).then(leads => {
+            if (leads.length > 0) {
+              allLeads.push(...leads);
             }
-          }) as CrawlResponse;
-
-          if (crawlResponse.success && crawlResponse.data) {
-            const extractedLeads = this.extractBusinessLeads(crawlResponse.data, directory);
-            allLeads.push(...extractedLeads);
-          }
-        } catch (urlError) {
-          console.error(`Error crawling ${url}:`, urlError);
-          // Continue with other URLs
+          }).catch(error => {
+            console.error(`Error crawling ${url}:`, error);
+          });
+          
+          searchPromises.push(searchPromise);
         }
       }
 
+      // Wait for all searches to complete
+      await Promise.all(searchPromises);
+
+      const uniqueLeads = this.removeDuplicateLeads(allLeads);
+      console.log(`Found ${uniqueLeads.length} total unique leads from ${directoriesToSearch.length} directories`);
+
       return { 
         success: true,
-        data: this.removeDuplicateLeads(allLeads) 
+        data: uniqueLeads 
       };
     } catch (error) {
       console.error('Error during business search:', error);
@@ -110,32 +116,108 @@ export class FirecrawlService {
     }
   }
 
+  private static async crawlUrl(url: string, source: string): Promise<BusinessLead[]> {
+    try {
+      console.log(`Crawling: ${url}`);
+      const crawlResponse = await this.firecrawlApp!.crawlUrl(url, {
+        limit: 30,
+        scrapeOptions: {
+          formats: ['markdown', 'html'],
+          onlyMainContent: true,
+          waitFor: 2000 // Wait for dynamic content to load
+        }
+      }) as CrawlResponse;
+
+      if (crawlResponse.success && crawlResponse.data) {
+        return this.extractBusinessLeads(crawlResponse.data, source);
+      }
+      return [];
+    } catch (error) {
+      console.error(`Failed to crawl ${url}:`, error);
+      return [];
+    }
+  }
+
   private static getSearchUrls(location: string, businessType: string, directory: string): string[] {
     const encodedLocation = encodeURIComponent(location);
     const encodedBusinessType = encodeURIComponent(businessType);
+    
+    // Normalize location and business type for better search results
+    const normalizedLocation = this.normalizeLocation(location);
+    const normalizedBusinessType = this.normalizeBusinessType(businessType);
+    const encodedNormalizedLocation = encodeURIComponent(normalizedLocation);
+    const encodedNormalizedBusinessType = encodeURIComponent(normalizedBusinessType);
 
     switch (directory) {
       case 'yellowpages':
         return [
-          `https://www.yellowpages.com/search?search_terms=${encodedBusinessType}&geo_location_terms=${encodedLocation}`,
+          `https://www.yellowpages.com/search?search_terms=${encodedNormalizedBusinessType}&geo_location_terms=${encodedNormalizedLocation}`,
+          `https://www.yellowpages.com/${encodedNormalizedLocation.toLowerCase().replace(/\s+/g, '-')}/${encodedNormalizedBusinessType.toLowerCase().replace(/\s+/g, '-')}`
         ];
       case 'yelp':
         return [
-          `https://www.yelp.com/search?find_desc=${encodedBusinessType}&find_loc=${encodedLocation}`,
+          `https://www.yelp.com/search?find_desc=${encodedNormalizedBusinessType}&find_loc=${encodedNormalizedLocation}`,
+          `https://www.yelp.com/${encodedNormalizedLocation.toLowerCase().replace(/\s+/g, '-')}/${encodedNormalizedBusinessType.toLowerCase().replace(/\s+/g, '-')}`
         ];
       case 'bbb':
         return [
-          `https://www.bbb.org/search?find_country=USA&find_text=${encodedBusinessType}&find_loc=${encodedLocation}`,
+          `https://www.bbb.org/search?find_country=USA&find_text=${encodedNormalizedBusinessType}&find_loc=${encodedNormalizedLocation}`,
         ];
       case 'google':
         return [
-          `https://www.google.com/search?q=${encodedBusinessType}+in+${encodedLocation}+contact+information`,
+          `https://www.google.com/search?q="${normalizedBusinessType}"+in+"${normalizedLocation}"+contact+phone+email`,
+          `https://www.google.com/search?q="${normalizedBusinessType}"+"${normalizedLocation}"+directory+listings`
         ];
       default:
         return [
-          `https://www.yellowpages.com/search?search_terms=${encodedBusinessType}&geo_location_terms=${encodedLocation}`,
+          `https://www.yellowpages.com/search?search_terms=${encodedNormalizedBusinessType}&geo_location_terms=${encodedNormalizedLocation}`,
         ];
     }
+  }
+
+  private static normalizeLocation(location: string): string {
+    // Add state abbreviations if missing common city names
+    const locationMap: { [key: string]: string } = {
+      'new york': 'New York, NY',
+      'los angeles': 'Los Angeles, CA',
+      'chicago': 'Chicago, IL',
+      'houston': 'Houston, TX',
+      'phoenix': 'Phoenix, AZ',
+      'philadelphia': 'Philadelphia, PA',
+      'san antonio': 'San Antonio, TX',
+      'san diego': 'San Diego, CA',
+      'dallas': 'Dallas, TX',
+      'san jose': 'San Jose, CA'
+    };
+
+    const lowerLocation = location.toLowerCase().trim();
+    return locationMap[lowerLocation] || location;
+  }
+
+  private static normalizeBusinessType(businessType: string): string {
+    // Expand common abbreviations and improve search terms
+    const typeMap: { [key: string]: string } = {
+      'restaurant': 'restaurants dining food',
+      'lawyer': 'lawyers attorneys legal services',
+      'doctor': 'doctors physicians medical',
+      'dentist': 'dentists dental care',
+      'plumber': 'plumbers plumbing services',
+      'electrician': 'electricians electrical services',
+      'mechanic': 'auto repair mechanics automotive',
+      'salon': 'hair salons beauty services',
+      'gym': 'gyms fitness centers',
+      'store': 'retail stores shopping',
+      'contractor': 'contractors construction services',
+      'real estate': 'real estate agents realtors'
+    };
+
+    const lowerType = businessType.toLowerCase().trim();
+    for (const [key, value] of Object.entries(typeMap)) {
+      if (lowerType.includes(key)) {
+        return value;
+      }
+    }
+    return businessType;
   }
 
   private static extractBusinessLeads(data: any[], source: string): BusinessLead[] {
