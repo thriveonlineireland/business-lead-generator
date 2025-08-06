@@ -6,21 +6,73 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StorageService, SearchHistory, SavedSearch } from "@/utils/StorageService";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building } from "lucide-react";
+import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye } from "lucide-react";
 import { ExportService } from "@/utils/ExportService";
 
 const SearchHistoryPage = () => {
   const { toast } = useToast();
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [supabaseLeads, setSupabaseLeads] = useState<any[]>([]);
+  const [supabaseSearchHistory, setSupabaseSearchHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    loadData();
+    checkAuthAndLoadData();
   }, []);
 
-  const loadData = () => {
+  const checkAuthAndLoadData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      
+      if (user) {
+        await loadSupabaseData();
+      }
+      
+      // Always load local storage data as backup
+      loadLocalData();
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      setIsAuthenticated(false);
+      loadLocalData();
+    }
+  };
+
+  const loadSupabaseData = async () => {
+    try {
+      // Load leads from Supabase
+      const { data: leads, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (leadsError) {
+        console.error('Error loading leads:', leadsError);
+      } else {
+        setSupabaseLeads(leads || []);
+      }
+
+      // Load search history from Supabase
+      const { data: searchHistory, error: historyError } = await supabase
+        .from('search_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (historyError) {
+        console.error('Error loading search history:', historyError);
+      } else {
+        setSupabaseSearchHistory(searchHistory || []);
+      }
+    } catch (error) {
+      console.error('Error in loadSupabaseData:', error);
+    }
+  };
+
+  const loadLocalData = () => {
     setSearchHistory(StorageService.getSearchHistory());
     setSavedSearches(StorageService.getSavedSearches());
   };
@@ -113,17 +165,182 @@ const SearchHistoryPage = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="history" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+      {/* Authentication Notice */}
+      {isAuthenticated === false && (
+        <Card className="border-warning bg-warning/10">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <span className="text-sm font-medium">
+                You're not logged in. Only local search history is shown. Sign in to access your cloud-saved leads and search history.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Tabs defaultValue={isAuthenticated ? "leads" : "history"} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          {isAuthenticated && (
+            <TabsTrigger value="leads" className="flex items-center space-x-2">
+              <Eye className="h-4 w-4" />
+              <span>My Leads</span>
+            </TabsTrigger>
+          )}
+          {isAuthenticated && (
+            <TabsTrigger value="supabase-history" className="flex items-center space-x-2">
+              <History className="h-4 w-4" />
+              <span>Cloud History</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="history" className="flex items-center space-x-2">
             <History className="h-4 w-4" />
-            <span>Search History</span>
+            <span>Local History</span>
           </TabsTrigger>
           <TabsTrigger value="saved" className="flex items-center space-x-2">
             <Save className="h-4 w-4" />
             <span>Saved Searches</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* My Leads Tab */}
+        {isAuthenticated && (
+          <TabsContent value="leads" className="space-y-6">
+            <Card className="shadow-medium border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  <span>My Leads</span>
+                  <Badge variant="secondary">{supabaseLeads.length}</Badge>
+                </CardTitle>
+                <CardDescription>
+                  All your business leads saved to the cloud database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {supabaseLeads.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Business Name</TableHead>
+                          <TableHead className="font-semibold">Contact Info</TableHead>
+                          <TableHead className="font-semibold">Location</TableHead>
+                          <TableHead className="font-semibold">Date Added</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supabaseLeads.map((lead) => (
+                          <TableRow key={lead.id} className="hover:bg-muted/50">
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-medium">{lead.name}</div>
+                                <div className="text-sm text-muted-foreground">{lead.business_type}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1 text-sm">
+                                {lead.email && <div>📧 {lead.email}</div>}
+                                {lead.phone && <div>📞 {lead.phone}</div>}
+                                {lead.website && <div>🌐 {lead.website}</div>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2 text-sm">
+                                <MapPin className="h-3 w-3 text-muted-foreground" />
+                                <span>{lead.location}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2 text-sm">
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                <span>{new Date(lead.created_at).toLocaleDateString()}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Eye className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No leads found</h3>
+                    <p className="text-muted-foreground">
+                      Start searching for businesses to see your leads here
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Cloud Search History Tab */}
+        {isAuthenticated && (
+          <TabsContent value="supabase-history" className="space-y-6">
+            <Card className="shadow-medium border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <History className="h-5 w-5 text-primary" />
+                  <span>Cloud Search History</span>
+                  <Badge variant="secondary">{supabaseSearchHistory.length}</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Your search history saved to the cloud database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {supabaseSearchHistory.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Search Query</TableHead>
+                          <TableHead className="font-semibold">Results</TableHead>
+                          <TableHead className="font-semibold">Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supabaseSearchHistory.map((item) => (
+                          <TableRow key={item.id} className="hover:bg-muted/50">
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-medium">{item.query}</div>
+                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>{item.location}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{item.results_count}</span>
+                              <span className="text-muted-foreground"> leads</span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2 text-sm">
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No cloud search history</h3>
+                    <p className="text-muted-foreground">
+                      Your search history will appear here when you're logged in
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="history" className="space-y-6">
           <Card className="shadow-medium border-0">

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { FirecrawlService, BusinessLead } from "@/utils/FirecrawlService";
 import { StorageService } from "@/utils/StorageService";
+import { supabase } from "@/integrations/supabase/client";
 import { Search, MapPin, Building, Globe, Download, Save, AlertCircle } from "lucide-react";
 import ResultsTable from "@/components/search/ResultsTable";
 import QuickActions from "@/components/search/QuickActions";
@@ -67,6 +68,74 @@ const Dashboard = () => {
     { value: "bbb", label: "Better Business Bureau", description: "Verified business profiles" },
     { value: "google", label: "Google Search", description: "General business search" }
   ];
+
+  // Supabase functions
+  const saveLeadsToSupabase = async (leads: BusinessLead[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user, skipping Supabase save');
+        return;
+      }
+
+      const leadsData = leads.map(lead => ({
+        user_id: user.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        website: lead.website,
+        address: lead.address,
+        business_type: searchForm.businessType,
+        location: searchForm.location,
+        source_url: lead.source
+      }));
+
+      const { error } = await supabase
+        .from('leads')
+        .insert(leadsData);
+
+      if (error) {
+        console.error('Error saving leads to Supabase:', error);
+        toast({
+          title: "Warning",
+          description: "Leads saved locally but not to cloud database. Please ensure you're logged in.",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Successfully saved leads to Supabase');
+      }
+    } catch (error) {
+      console.error('Error in saveLeadsToSupabase:', error);
+    }
+  };
+
+  const saveSearchHistoryToSupabase = async (searchData: { location: string; businessType: string; resultsCount: number }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user, skipping search history save');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('search_history')
+        .insert({
+          user_id: user.id,
+          query: `${searchData.businessType} in ${searchData.location}`,
+          location: searchData.location,
+          business_type: searchData.businessType,
+          results_count: searchData.resultsCount
+        });
+
+      if (error) {
+        console.error('Error saving search history to Supabase:', error);
+      } else {
+        console.log('Successfully saved search history to Supabase');
+      }
+    } catch (error) {
+      console.error('Error in saveSearchHistoryToSupabase:', error);
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchForm.location.trim() || !searchForm.businessType.trim()) {
@@ -137,7 +206,15 @@ const Dashboard = () => {
           creditsUsed: Math.ceil(result.data.length / 10) // Estimate
         });
 
-        // Add to search history
+        // Save leads and search history to Supabase
+        await saveLeadsToSupabase(result.data);
+        await saveSearchHistoryToSupabase({
+          location: searchForm.location,
+          businessType: searchForm.businessType,
+          resultsCount: result.data.length
+        });
+
+        // Also add to local storage as backup
         StorageService.addToSearchHistory({
           location: searchForm.location,
           businessType: searchForm.businessType,
