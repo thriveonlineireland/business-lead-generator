@@ -72,34 +72,53 @@ export class FirecrawlService {
         this.firecrawlApp = new FirecrawlApp({ apiKey });
       }
 
-      // Search across all directories simultaneously if 'all' is selected
+      // Start with Google only to avoid rate limits, fallback to other directories
       const directoriesToSearch = directory === 'all' 
-        ? ['yellowpages', 'yelp', 'google'] // Removed BBB for speed, focus on faster sources
+        ? ['google'] // Start with just Google to avoid rate limits
         : [directory];
       
       const allLeads: BusinessLead[] = [];
+      let successfulCrawls = 0;
+      let rateLimitHit = false;
       
-      // Use Promise.allSettled for parallel execution with error handling
-      const searchPromises = directoriesToSearch.flatMap(dir => {
+      // Sequential search with delay to avoid rate limits
+      for (const dir of directoriesToSearch) {
         const searchUrls = this.getSearchUrls(location, businessType, dir);
-        return searchUrls.map(url => this.crawlUrl(url, dir));
-      });
-
-      console.log(`Starting parallel search across ${searchPromises.length} URLs...`);
-      const results = await Promise.allSettled(searchPromises);
-      
-      // Process results and collect leads
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.length > 0) {
-          allLeads.push(...result.value);
-          console.log(`URL ${index + 1} returned ${result.value.length} leads`);
-        } else if (result.status === 'rejected') {
-          console.error(`URL ${index + 1} failed:`, result.reason);
+        
+        for (const url of searchUrls) {
+          try {
+            const leads = await this.crawlUrlWithRetry(url, dir);
+            if (leads.length > 0) {
+              allLeads.push(...leads);
+              successfulCrawls++;
+              console.log(`Found ${leads.length} leads from ${dir}`);
+            }
+            // Add delay between requests to avoid rate limiting
+            await this.delay(2000);
+          } catch (error: any) {
+            if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+              console.warn('Rate limit hit, slowing down...');
+              rateLimitHit = true;
+              await this.delay(10000); // Wait 10 seconds on rate limit
+            } else if (error.message?.includes('403')) {
+              console.warn(`Site ${dir} is blocked, skipping...`);
+              break; // Skip this directory entirely
+            } else {
+              console.error(`Error crawling ${url}:`, error.message);
+            }
+          }
         }
-      });
+      }
 
       const uniqueLeads = this.removeDuplicateLeads(allLeads);
-      console.log(`Found ${uniqueLeads.length} total unique leads from ${directoriesToSearch.length} directories`);
+      console.log(`Found ${uniqueLeads.length} total unique leads from ${successfulCrawls} successful crawls`);
+
+      if (uniqueLeads.length === 0 && rateLimitHit) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded. Please wait a few minutes before searching again, or upgrade your Firecrawl plan for higher limits.'
+        };
+      }
 
       return { 
         success: true,
@@ -114,26 +133,57 @@ export class FirecrawlService {
     }
   }
 
+  private static delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   private static async crawlUrl(url: string, source: string): Promise<BusinessLead[]> {
     try {
       console.log(`Crawling: ${url}`);
-      const crawlResponse = await this.firecrawlApp!.crawlUrl(url, {
-        limit: 15, // Reduced limit for faster results
-        scrapeOptions: {
-          formats: ['markdown'],
-          onlyMainContent: true,
-          waitFor: 1000 // Reduced wait time
-        }
-      }) as CrawlResponse;
+      const crawlResponse = await this.firecrawlApp!.scrapeUrl(url, {
+        formats: ['markdown'],
+        onlyMainContent: true,
+        waitFor: 1000
+      }) as any;
 
       if (crawlResponse.success && crawlResponse.data) {
-        return this.extractBusinessLeads(crawlResponse.data, source);
+        return this.extractFromContent(crawlResponse.data.markdown || crawlResponse.data.content || '', source, url);
       }
       return [];
     } catch (error) {
       console.error(`Failed to crawl ${url}:`, error);
-      return [];
+      throw error; // Re-throw to handle rate limits in parent
     }
+  }
+
+  private static async crawlUrlWithRetry(url: string, source: string, maxRetries: number = 2): Promise<BusinessLead[]> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Crawling: ${url} (attempt ${attempt})`);
+        const crawlResponse = await this.firecrawlApp!.scrapeUrl(url, {
+          formats: ['markdown'],
+          onlyMainContent: true,
+          waitFor: 1000
+        }) as any;
+
+        if (crawlResponse.success && crawlResponse.data) {
+          const content = crawlResponse.data.markdown || crawlResponse.data.content || '';
+          return this.extractFromContent(content, source, url);
+        }
+        return [];
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed for ${url}:`, error.message);
+        
+        if (attempt === maxRetries) {
+          throw error; // Final attempt failed
+        }
+        
+        // Wait before retry, longer delay for rate limits
+        const delay = error.message?.includes('429') ? 15000 : 3000;
+        await this.delay(delay);
+      }
+    }
+    return [];
   }
 
   private static getSearchUrls(location: string, businessType: string, directory: string): string[] {
