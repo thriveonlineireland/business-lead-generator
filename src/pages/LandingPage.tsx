@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { EnhancedButton } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, History, Shield, Zap, Target, Building2, Users, Globe, Settings as SettingsIcon } from "lucide-react";
+import { Search, Download, History, Shield, Zap, Target, Building2, Users, Globe, Settings as SettingsIcon, LogIn, ArrowRight } from "lucide-react";
 
 const LandingPage = () => {
+  const { user } = useAuth();
   const features = [
     {
       icon: Search,
@@ -68,19 +70,30 @@ const LandingPage = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up">
-              <EnhancedButton variant="hero" size="lg" asChild>
-                <Link to="/dashboard">
-                  <Search className="mr-2 h-5 w-5" />
-                  Start Finding Leads
-                </Link>
-              </EnhancedButton>
-              
-              <EnhancedButton variant="outline" size="lg" asChild>
-                <Link to="/settings">
-                  <Building2 className="mr-2 h-5 w-5" />
-                  Setup API Key
-                </Link>
-              </EnhancedButton>
+              {user ? (
+                <EnhancedButton variant="hero" size="lg" asChild>
+                  <Link to="/dashboard">
+                    <Search className="mr-2 h-5 w-5" />
+                    Go to Dashboard
+                  </Link>
+                </EnhancedButton>
+              ) : (
+                <>
+                  <EnhancedButton variant="hero" size="lg" asChild>
+                    <Link to="/auth">
+                      <LogIn className="mr-2 h-5 w-5" />
+                      Sign In / Sign Up
+                    </Link>
+                  </EnhancedButton>
+                  
+                  <EnhancedButton variant="outline" size="lg" asChild>
+                    <Link to="/dashboard">
+                      <ArrowRight className="mr-2 h-5 w-5" />
+                      Try Without Account
+                    </Link>
+                  </EnhancedButton>
+                </>
+              )}
             </div>
           </div>
         </div>

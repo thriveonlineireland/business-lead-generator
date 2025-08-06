@@ -7,38 +7,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StorageService, SearchHistory, SavedSearch } from "@/utils/StorageService";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye } from "lucide-react";
 import { ExportService } from "@/utils/ExportService";
 
 const SearchHistoryPage = () => {
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [supabaseLeads, setSupabaseLeads] = useState<any[]>([]);
   const [supabaseSearchHistory, setSupabaseSearchHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    checkAuthAndLoadData();
-  }, []);
+    if (!authLoading) {
+      loadData();
+    }
+  }, [authLoading, user]);
 
-  const checkAuthAndLoadData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-      
-      if (user) {
-        await loadSupabaseData();
-      }
-      
-      // Always load local storage data as backup
-      loadLocalData();
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      setIsAuthenticated(false);
-      loadLocalData();
+  const loadData = async () => {
+    // Always load local storage data as backup
+    setSearchHistory(StorageService.getSearchHistory());
+    setSavedSearches(StorageService.getSavedSearches());
+
+    // Load Supabase data if authenticated
+    if (user) {
+      await loadSupabaseData();
     }
   };
 
@@ -166,7 +162,7 @@ const SearchHistoryPage = () => {
       </div>
 
       {/* Authentication Notice */}
-      {isAuthenticated === false && (
+      {!user && !authLoading && (
         <Card className="border-warning bg-warning/10">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -179,15 +175,15 @@ const SearchHistoryPage = () => {
         </Card>
       )}
 
-      <Tabs defaultValue={isAuthenticated ? "leads" : "history"} className="w-full">
+      <Tabs defaultValue={user ? "leads" : "history"} className="w-full">
         <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-          {isAuthenticated && (
+          {user && (
             <TabsTrigger value="leads" className="flex items-center space-x-2">
               <Eye className="h-4 w-4" />
               <span>My Leads</span>
             </TabsTrigger>
           )}
-          {isAuthenticated && (
+          {user && (
             <TabsTrigger value="supabase-history" className="flex items-center space-x-2">
               <History className="h-4 w-4" />
               <span>Cloud History</span>
@@ -204,7 +200,7 @@ const SearchHistoryPage = () => {
         </TabsList>
 
         {/* My Leads Tab */}
-        {isAuthenticated && (
+        {user && (
           <TabsContent value="leads" className="space-y-6">
             <Card className="shadow-medium border-0">
               <CardHeader>
@@ -277,7 +273,7 @@ const SearchHistoryPage = () => {
         )}
 
         {/* Cloud Search History Tab */}
-        {isAuthenticated && (
+        {user && (
           <TabsContent value="supabase-history" className="space-y-6">
             <Card className="shadow-medium border-0">
               <CardHeader>
