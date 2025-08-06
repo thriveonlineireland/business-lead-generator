@@ -22,12 +22,43 @@ const Dashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
   const [results, setResults] = useState<BusinessLead[]>([]);
   const [searchStats, setSearchStats] = useState<{
     totalFound: number;
     searchTime: number;
     creditsUsed: number;
   } | null>(null);
+
+  const majorCities = [
+    // US Cities
+    { value: "New York, NY", label: "New York, NY", country: "USA" },
+    { value: "Los Angeles, CA", label: "Los Angeles, CA", country: "USA" },
+    { value: "Chicago, IL", label: "Chicago, IL", country: "USA" },
+    { value: "Houston, TX", label: "Houston, TX", country: "USA" },
+    { value: "Phoenix, AZ", label: "Phoenix, AZ", country: "USA" },
+    { value: "Philadelphia, PA", label: "Philadelphia, PA", country: "USA" },
+    { value: "San Antonio, TX", label: "San Antonio, TX", country: "USA" },
+    { value: "San Diego, CA", label: "San Diego, CA", country: "USA" },
+    { value: "Dallas, TX", label: "Dallas, TX", country: "USA" },
+    { value: "San Jose, CA", label: "San Jose, CA", country: "USA" },
+    { value: "Austin, TX", label: "Austin, TX", country: "USA" },
+    { value: "Jacksonville, FL", label: "Jacksonville, FL", country: "USA" },
+    { value: "Miami, FL", label: "Miami, FL", country: "USA" },
+    { value: "Atlanta, GA", label: "Atlanta, GA", country: "USA" },
+    { value: "Seattle, WA", label: "Seattle, WA", country: "USA" },
+    { value: "Denver, CO", label: "Denver, CO", country: "USA" },
+    { value: "Las Vegas, NV", label: "Las Vegas, NV", country: "USA" },
+    // International Cities
+    { value: "London, UK", label: "London, UK", country: "UK" },
+    { value: "Dublin, Ireland", label: "Dublin, Ireland", country: "Ireland" },
+    { value: "Manchester, UK", label: "Manchester, UK", country: "UK" },
+    { value: "Birmingham, UK", label: "Birmingham, UK", country: "UK" },
+    { value: "Toronto, Canada", label: "Toronto, Canada", country: "Canada" },
+    { value: "Vancouver, Canada", label: "Vancouver, Canada", country: "Canada" },
+    { value: "Sydney, Australia", label: "Sydney, Australia", country: "Australia" },
+    { value: "Melbourne, Australia", label: "Melbourne, Australia", country: "Australia" },
+  ];
 
   const directories = [
     { value: "all", label: "All Directories", description: "Search across all sources simultaneously" },
@@ -59,16 +90,31 @@ const Dashboard = () => {
 
     setIsLoading(true);
     setProgress(0);
+    setProgressMessage("Initializing search...");
     setResults([]);
     setSearchStats(null);
 
     try {
       const startTime = Date.now();
       
-      // Simulate progress updates
+      // Enhanced progress tracking
+      const progressUpdates = [
+        { progress: 20, message: "Preparing search URLs..." },
+        { progress: 40, message: "Crawling business directories..." },
+        { progress: 60, message: "Extracting contact information..." },
+        { progress: 80, message: "Processing leads..." },
+        { progress: 95, message: "Finalizing results..." }
+      ];
+
+      let currentStep = 0;
       const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
+        if (currentStep < progressUpdates.length) {
+          const update = progressUpdates[currentStep];
+          setProgress(update.progress);
+          setProgressMessage(update.message);
+          currentStep++;
+        }
+      }, 1000);
 
       const result = await FirecrawlService.searchBusinesses(
         searchForm.location,
@@ -78,6 +124,7 @@ const Dashboard = () => {
 
       clearInterval(progressInterval);
       setProgress(100);
+      setProgressMessage("Search completed!");
 
       if (result.success && result.data) {
         setResults(result.data);
@@ -155,13 +202,34 @@ const Dashboard = () => {
                 <MapPin className="h-4 w-4" />
                 <span>Location</span>
               </Label>
-              <Input
-                id="location"
-                placeholder="e.g., New York, NY or 10001"
-                value={searchForm.location}
-                onChange={(e) => setSearchForm(prev => ({ ...prev, location: e.target.value }))}
-                className="transition-all duration-200 focus:shadow-soft"
-              />
+              <div className="space-y-2">
+                <Select 
+                  value={searchForm.location} 
+                  onValueChange={(value) => setSearchForm(prev => ({ ...prev, location: value }))}
+                >
+                  <SelectTrigger className="transition-all duration-200 focus:shadow-soft bg-background z-50">
+                    <SelectValue placeholder="Select a major city or enter custom location" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50 max-h-60">
+                    {majorCities.map((city) => (
+                      <SelectItem key={city.value} value={city.value}>
+                        <div className="flex justify-between items-center w-full">
+                          <span>{city.label}</span>
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {city.country}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Or enter custom location (e.g., Small Town, State)"
+                  value={searchForm.location}
+                  onChange={(e) => setSearchForm(prev => ({ ...prev, location: e.target.value }))}
+                  className="transition-all duration-200 focus:shadow-soft text-sm"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -202,12 +270,18 @@ const Dashboard = () => {
           </div>
 
           {isLoading && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span>Searching...</span>
-                <span>{progress}%</span>
+                <span className="text-muted-foreground">{progressMessage}</span>
+                <span className="font-medium">{progress}%</span>
               </div>
-              <Progress value={progress} className="transition-all duration-300" />
+              <Progress value={progress} className="transition-all duration-500" />
+              <div className="text-xs text-muted-foreground text-center">
+                {searchForm.directory === 'all' 
+                  ? 'Searching across multiple directories for comprehensive results'
+                  : `Searching ${searchForm.directory} directory`
+                }
+              </div>
             </div>
           )}
 

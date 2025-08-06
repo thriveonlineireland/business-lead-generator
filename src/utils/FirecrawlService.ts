@@ -74,31 +74,29 @@ export class FirecrawlService {
 
       // Search across all directories simultaneously if 'all' is selected
       const directoriesToSearch = directory === 'all' 
-        ? ['yellowpages', 'yelp', 'bbb', 'google'] 
+        ? ['yellowpages', 'yelp', 'google'] // Removed BBB for speed, focus on faster sources
         : [directory];
       
       const allLeads: BusinessLead[] = [];
-      const searchPromises: Promise<void>[] = [];
-
-      // Search all directories in parallel for maximum efficiency
-      for (const dir of directoriesToSearch) {
+      
+      // Use Promise.allSettled for parallel execution with error handling
+      const searchPromises = directoriesToSearch.flatMap(dir => {
         const searchUrls = this.getSearchUrls(location, businessType, dir);
-        
-        for (const url of searchUrls) {
-          const searchPromise = this.crawlUrl(url, dir).then(leads => {
-            if (leads.length > 0) {
-              allLeads.push(...leads);
-            }
-          }).catch(error => {
-            console.error(`Error crawling ${url}:`, error);
-          });
-          
-          searchPromises.push(searchPromise);
-        }
-      }
+        return searchUrls.map(url => this.crawlUrl(url, dir));
+      });
 
-      // Wait for all searches to complete
-      await Promise.all(searchPromises);
+      console.log(`Starting parallel search across ${searchPromises.length} URLs...`);
+      const results = await Promise.allSettled(searchPromises);
+      
+      // Process results and collect leads
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          allLeads.push(...result.value);
+          console.log(`URL ${index + 1} returned ${result.value.length} leads`);
+        } else if (result.status === 'rejected') {
+          console.error(`URL ${index + 1} failed:`, result.reason);
+        }
+      });
 
       const uniqueLeads = this.removeDuplicateLeads(allLeads);
       console.log(`Found ${uniqueLeads.length} total unique leads from ${directoriesToSearch.length} directories`);
@@ -120,11 +118,11 @@ export class FirecrawlService {
     try {
       console.log(`Crawling: ${url}`);
       const crawlResponse = await this.firecrawlApp!.crawlUrl(url, {
-        limit: 30,
+        limit: 15, // Reduced limit for faster results
         scrapeOptions: {
-          formats: ['markdown', 'html'],
+          formats: ['markdown'],
           onlyMainContent: true,
-          waitFor: 2000 // Wait for dynamic content to load
+          waitFor: 1000 // Reduced wait time
         }
       }) as CrawlResponse;
 
