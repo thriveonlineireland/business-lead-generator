@@ -155,8 +155,17 @@ export class FirecrawlService {
   private static extractFromContent(content: string, source: string, url: string): BusinessLead[] {
     const leads: BusinessLead[] = [];
     
-    // Email regex
-    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    // Enhanced email regex patterns for better coverage
+    const emailPatterns = [
+      // Standard email pattern
+      /\b[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}\b/g,
+      // Email with 'mailto:' prefix
+      /mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})/gi,
+      // Email in text like "email: example@domain.com"
+      /(?:email|e-mail|contact)[\s:]+([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})/gi,
+      // Email in parentheses or brackets
+      /[\(\[]([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})[\)\]]/g
+    ];
     
     // Phone regex (various formats)
     const phoneRegex = /(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
@@ -164,34 +173,68 @@ export class FirecrawlService {
     // Website regex
     const websiteRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
 
-    // Business name extraction (simplified - would need more sophisticated parsing for real use)
+    // Business name extraction - improved patterns
     const lines = content.split('\n');
-    const businessPattern = /^[A-Z][a-zA-Z0-9\s&,-]+(?:LLC|Inc|Corp|Co|Company|Ltd|LTD)?$/;
+    const businessPatterns = [
+      /^[A-Z][a-zA-Z0-9\s&,'.-]+(?:LLC|Inc|Corp|Co|Company|Ltd|LTD|Services|Group|Associates|Partners)\.?$/,
+      /^[A-Z][a-zA-Z0-9\s&,'.-]{3,50}$/
+    ];
 
-    const emails = content.match(emailRegex) || [];
+    // Extract emails using multiple patterns
+    const emails = new Set<string>();
+    emailPatterns.forEach(pattern => {
+      const matches = content.match(pattern) || [];
+      matches.forEach(match => {
+        // Clean up mailto: prefix and extract email
+        const cleanEmail = match.replace(/^mailto:/i, '').replace(/[^\w@.-]/g, '');
+        if (cleanEmail.includes('@') && cleanEmail.includes('.')) {
+          emails.add(cleanEmail.toLowerCase());
+        }
+      });
+    });
+
     const phones = content.match(phoneRegex) || [];
     const websites = content.match(websiteRegex) || [];
 
     // Try to extract business names from structured content
     const potentialBusinessNames = lines
       .filter(line => line.trim().length > 3 && line.trim().length < 100)
-      .filter(line => businessPattern.test(line.trim()))
+      .filter(line => businessPatterns.some(pattern => pattern.test(line.trim())))
       .slice(0, 10); // Limit to avoid noise
 
+    // Convert Set to Array for easier handling
+    const emailsArray = Array.from(emails);
+
     // Create leads by combining extracted information
-    if (emails.length > 0 || phones.length > 0 || websites.length > 0) {
-      for (let i = 0; i < Math.max(emails.length, phones.length, websites.length, potentialBusinessNames.length); i++) {
+    if (emailsArray.length > 0 || phones.length > 0 || websites.length > 0) {
+      // Create individual leads for each email found (prioritize emails)
+      const maxItems = Math.max(emailsArray.length, phones.length, websites.length, potentialBusinessNames.length);
+      
+      for (let i = 0; i < maxItems; i++) {
         const lead: BusinessLead = {
           name: potentialBusinessNames[i] || `Business ${i + 1}`,
-          email: emails[i],
+          email: emailsArray[i],
           phone: phones[i],
           website: websites[i],
           source: `${source} (${url})`,
           description: content.substring(0, 200) + '...'
         };
 
-        // Only add if we have at least one contact method
+        // Only add if we have at least one contact method, prioritizing emails
         if (lead.email || lead.phone || lead.website) {
+          leads.push(lead);
+        }
+      }
+
+      // If we have more emails than other contact methods, create additional leads for extra emails
+      if (emailsArray.length > Math.max(phones.length, websites.length)) {
+        for (let i = Math.max(phones.length, websites.length); i < emailsArray.length; i++) {
+          const lead: BusinessLead = {
+            name: potentialBusinessNames[i] || `Email Contact ${i + 1}`,
+            email: emailsArray[i],
+            source: `${source} (${url})`,
+            description: content.substring(0, 200) + '...'
+          };
           leads.push(lead);
         }
       }
