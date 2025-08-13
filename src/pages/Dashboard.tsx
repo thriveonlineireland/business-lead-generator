@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { FirecrawlService, BusinessLead } from "@/utils/FirecrawlService";
+import { GooglePlacesService } from "@/utils/GooglePlacesService";
 import { StorageService } from "@/utils/StorageService";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, MapPin, Building, Globe, Download, Save, AlertCircle } from "lucide-react";
@@ -19,7 +20,8 @@ const Dashboard = () => {
   const [searchForm, setSearchForm] = useState({
     location: "",
     businessType: "",
-    directory: "all"
+    directory: "all",
+    dataSource: "google-places" // Add data source selection
   });
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -67,6 +69,11 @@ const Dashboard = () => {
     { value: "yelp", label: "Yelp", description: "Local business reviews and info" },
     { value: "bbb", label: "Better Business Bureau", description: "Verified business profiles" },
     { value: "google", label: "Google Search", description: "General business search" }
+  ];
+
+  const dataSources = [
+    { value: "google-places", label: "Google Places API", description: "High-quality business data (500+ results)" },
+    { value: "firecrawl", label: "Firecrawl Web Scraping", description: "Web scraping approach (limited results)" }
   ];
 
   // Supabase functions
@@ -147,14 +154,27 @@ const Dashboard = () => {
       return;
     }
 
-    const apiKey = FirecrawlService.getApiKey();
-    if (!apiKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please configure your Firecrawl API key in settings before searching.",
-        variant: "destructive",
-      });
-      return;
+    // Check API keys based on data source
+    if (searchForm.dataSource === "google-places") {
+      const googleApiKey = GooglePlacesService.getApiKey();
+      if (!googleApiKey) {
+        toast({
+          title: "Google Places API Key Required",
+          description: "Please configure your Google Places API key in settings.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      const firecrawlApiKey = FirecrawlService.getApiKey();
+      if (!firecrawlApiKey) {
+        toast({
+          title: "Firecrawl API Key Required",
+          description: "Please configure your Firecrawl API key in settings.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -185,11 +205,20 @@ const Dashboard = () => {
         }
       }, 1000);
 
-      const result = await FirecrawlService.searchBusinesses(
-        searchForm.location,
-        searchForm.businessType,
-        searchForm.directory
-      );
+      let result;
+      if (searchForm.dataSource === "google-places") {
+        result = await GooglePlacesService.searchBusinesses(
+          searchForm.location,
+          searchForm.businessType,
+          500 // Request up to 500 results
+        );
+      } else {
+        result = await FirecrawlService.searchBusinesses(
+          searchForm.location,
+          searchForm.businessType,
+          searchForm.directory
+        );
+      }
 
       clearInterval(progressInterval);
       setProgress(100);
@@ -325,26 +354,50 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="directory" className="flex items-center space-x-2">
+            <Label htmlFor="dataSource" className="flex items-center space-x-2">
               <Globe className="h-4 w-4" />
-              <span>Directory Source</span>
+              <span>Data Source</span>
             </Label>
-            <Select value={searchForm.directory} onValueChange={(value) => setSearchForm(prev => ({ ...prev, directory: value }))}>
+            <Select value={searchForm.dataSource} onValueChange={(value) => setSearchForm(prev => ({ ...prev, dataSource: value }))}>
               <SelectTrigger className="transition-all duration-200 focus:shadow-soft">
-                <SelectValue placeholder="Select a directory" />
+                <SelectValue placeholder="Select data source" />
               </SelectTrigger>
               <SelectContent>
-                {directories.map((dir) => (
-                  <SelectItem key={dir.value} value={dir.value}>
+                {dataSources.map((source) => (
+                  <SelectItem key={source.value} value={source.value}>
                     <div>
-                      <div className="font-medium">{dir.label}</div>
-                      <div className="text-sm text-muted-foreground">{dir.description}</div>
+                      <div className="font-medium">{source.label}</div>
+                      <div className="text-sm text-muted-foreground">{source.description}</div>
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {searchForm.dataSource === "firecrawl" && (
+            <div className="space-y-2">
+              <Label htmlFor="directory" className="flex items-center space-x-2">
+                <Globe className="h-4 w-4" />
+                <span>Directory Source</span>
+              </Label>
+              <Select value={searchForm.directory} onValueChange={(value) => setSearchForm(prev => ({ ...prev, directory: value }))}>
+                <SelectTrigger className="transition-all duration-200 focus:shadow-soft">
+                  <SelectValue placeholder="Select a directory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {directories.map((dir) => (
+                    <SelectItem key={dir.value} value={dir.value}>
+                      <div>
+                        <div className="font-medium">{dir.label}</div>
+                        <div className="text-sm text-muted-foreground">{dir.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {isLoading && (
             <div className="space-y-3">
@@ -384,11 +437,20 @@ const Dashboard = () => {
             </EnhancedButton>
           </div>
 
-          {!FirecrawlService.getApiKey() && (
+          {!GooglePlacesService.getApiKey() && searchForm.dataSource === "google-places" && (
             <div className="flex items-center space-x-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
               <AlertCircle className="h-5 w-5 text-warning" />
               <span className="text-sm">
-                No API key configured. Please set up your Firecrawl API key in settings to use this feature.
+                No Google Places API key configured. Please set up your API key in settings to use this feature.
+              </span>
+            </div>
+          )}
+
+          {!FirecrawlService.getApiKey() && searchForm.dataSource === "firecrawl" && (
+            <div className="flex items-center space-x-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <span className="text-sm">
+                No Firecrawl API key configured. Please set up your API key in settings to use this feature.
               </span>
             </div>
           )}
