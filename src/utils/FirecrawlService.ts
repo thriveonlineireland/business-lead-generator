@@ -99,6 +99,29 @@ export class FirecrawlService {
           if (leads.length > 0) {
             return { success: true, data: leads };
           }
+
+          // If no direct leads from search metadata, scrape top result URLs for contact info
+          const urlsToScrape = (searchResult.data || [])
+            .map((d: any) => d.url)
+            .filter(Boolean)
+            .slice(0, 5);
+
+          let scrapedLeads: BusinessLead[] = [];
+          for (const url of urlsToScrape) {
+            try {
+              const leadsFromUrl = await this.crawlUrlWithRetry(url, 'firecrawl-search');
+              console.log(`Extracted ${leadsFromUrl.length} leads from ${url}`);
+              scrapedLeads.push(...leadsFromUrl);
+              if (scrapedLeads.length >= 5) break; // keep it tight to avoid rate limits
+            } catch (e: any) {
+              console.warn(`Failed scraping search result URL ${url}:`, e?.message || e);
+            }
+          }
+
+          scrapedLeads = this.removeDuplicateLeads(scrapedLeads);
+          if (scrapedLeads.length > 0) {
+            return { success: true, data: scrapedLeads };
+          }
         }
       } catch (searchError) {
         console.warn('Search API not available, falling back to scraping:', searchError);
@@ -282,6 +305,7 @@ export class FirecrawlService {
     // Expand common abbreviations and improve search terms
     const typeMap: { [key: string]: string } = {
       'restaurant': 'restaurants dining food',
+      'cafe': 'cafes cafe coffee shop coffeehouse coffee bar',
       'lawyer': 'lawyers attorneys legal services',
       'doctor': 'doctors physicians medical',
       'dentist': 'dentists dental care',
@@ -308,7 +332,7 @@ export class FirecrawlService {
     const leads: BusinessLead[] = [];
 
     for (const item of data) {
-      const content = item.markdown || item.html || item.content || '';
+      const content = item.markdown || item.html || item.content || item.description || '';
       const url = item.url || item.metadata?.url || '';
       
       if (content) {
@@ -349,8 +373,8 @@ export class FirecrawlService {
       /[\(\[]([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})[\)\]]/g
     ];
     
-    // Phone regex (various formats)
-    const phoneRegex = /(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
+    // Phone regex (international formats, handles +353 etc.)
+    const phoneRegex = /(\+?\d{1,3}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?){2,4}\d{2,4}/g;
     
     // Website regex
     const websiteRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
