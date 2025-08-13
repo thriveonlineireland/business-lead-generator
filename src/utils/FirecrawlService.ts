@@ -81,8 +81,9 @@ export class FirecrawlService {
         return { success: false, error: 'Invalid API key. Please check your Firecrawl API key in settings.' };
       }
 
-      // Try a simple direct search approach first
-      const searchQuery = `${businessType} ${location} contact information email phone`;
+      // Try a simple direct search approach first with enhanced keywords
+      const enhancedBusinessType = this.getEnhancedSearchTerms(businessType);
+      const searchQuery = `${enhancedBusinessType} ${location} contact information email phone`;
       console.log(`Searching: ${searchQuery}`);
       
       try {
@@ -280,6 +281,29 @@ export class FirecrawlService {
           `https://www.yellowpages.com/search?search_terms=${encodedNormalizedBusinessType}&geo_location_terms=${encodedNormalizedLocation}`,
         ];
     }
+  }
+
+  private static getEnhancedSearchTerms(businessType: string): string {
+    const enhancedTermsMap: { [key: string]: string } = {
+      'cafe': 'cafe coffee shop coffeehouse tea espresso latte cappuccino',
+      'restaurant': 'restaurant dining food kitchen bistro eatery',
+      'bar': 'bar pub tavern cocktail drinks nightlife',
+      'bakery': 'bakery bread pastry cake dessert',
+      'hotel': 'hotel accommodation lodging stay inn',
+      'gym': 'gym fitness center workout exercise',
+      'salon': 'salon beauty hair styling spa',
+      'store': 'store shop retail shopping market',
+      'clinic': 'clinic medical health doctor physician',
+      'dental': 'dental dentist teeth oral health'
+    };
+
+    const lowerType = businessType.toLowerCase().trim();
+    for (const [key, enhanced] of Object.entries(enhancedTermsMap)) {
+      if (lowerType.includes(key)) {
+        return enhanced;
+      }
+    }
+    return businessType;
   }
 
   private static normalizeLocation(location: string): string {
