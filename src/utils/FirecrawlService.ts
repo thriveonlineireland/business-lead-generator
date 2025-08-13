@@ -81,51 +81,61 @@ export class FirecrawlService {
         return { success: false, error: 'Invalid API key. Please check your Firecrawl API key in settings.' };
       }
 
-      // Try a simple direct search approach first with enhanced keywords
-      const enhancedBusinessType = this.getEnhancedSearchTerms(businessType);
-      const searchQuery = `${enhancedBusinessType} ${location} contact information email phone`;
-      console.log(`Searching: ${searchQuery}`);
+      // Try multiple search approaches with enhanced keywords
+      const searchVariations = [
+        `${this.getEnhancedSearchTerms(businessType)} ${location} contact information email phone`,
+        `"${businessType}" "${location}" directory listings contact`,
+        `${businessType} businesses in ${location} phone email address`,
+      ];
       
-      try {
-        const searchResult = await this.firecrawlApp.search(searchQuery, {
-          limit: 10
-        });
+      let allSearchLeads: BusinessLead[] = [];
+      
+      for (const searchQuery of searchVariations) {
+        console.log(`Searching: ${searchQuery}`);
         
-        console.log('Search result:', searchResult);
-        
-        if (searchResult.success && searchResult.data && searchResult.data.length > 0) {
-          const leads = this.extractFromSearchResults(searchResult.data, 'firecrawl-search');
-          console.log(`Found ${leads.length} leads from search`);
+        try {
+          const searchResult = await this.firecrawlApp.search(searchQuery, {
+            limit: 15
+          });
           
-          if (leads.length > 0) {
-            return { success: true, data: leads };
-          }
+          console.log(`Search result for "${searchQuery}":`, searchResult);
+          
+          if (searchResult.success && searchResult.data && searchResult.data.length > 0) {
+            const leads = this.extractFromSearchResults(searchResult.data, 'firecrawl-search');
+            console.log(`Found ${leads.length} leads from search variation`);
+            allSearchLeads.push(...leads);
 
-          // If no direct leads from search metadata, scrape top result URLs for contact info
-          const urlsToScrape = (searchResult.data || [])
-            .map((d: any) => d.url)
-            .filter(Boolean)
-            .slice(0, 5);
+            // If no direct leads from search metadata, scrape top result URLs
+            if (leads.length === 0) {
+              const urlsToScrape = (searchResult.data || [])
+                .map((d: any) => d.url)
+                .filter(Boolean)
+                .slice(0, 3);
 
-          let scrapedLeads: BusinessLead[] = [];
-          for (const url of urlsToScrape) {
-            try {
-              const leadsFromUrl = await this.crawlUrlWithRetry(url, 'firecrawl-search');
-              console.log(`Extracted ${leadsFromUrl.length} leads from ${url}`);
-              scrapedLeads.push(...leadsFromUrl);
-              if (scrapedLeads.length >= 5) break; // keep it tight to avoid rate limits
-            } catch (e: any) {
-              console.warn(`Failed scraping search result URL ${url}:`, e?.message || e);
+              for (const url of urlsToScrape) {
+                try {
+                  const leadsFromUrl = await this.crawlUrlWithRetry(url, 'firecrawl-search');
+                  console.log(`Extracted ${leadsFromUrl.length} leads from ${url}`);
+                  allSearchLeads.push(...leadsFromUrl);
+                } catch (e: any) {
+                  console.warn(`Failed scraping search result URL ${url}:`, e?.message || e);
+                }
+              }
             }
           }
-
-          scrapedLeads = this.removeDuplicateLeads(scrapedLeads);
-          if (scrapedLeads.length > 0) {
-            return { success: true, data: scrapedLeads };
-          }
+        } catch (searchError) {
+          console.warn(`Search variation failed for "${searchQuery}":`, searchError);
         }
-      } catch (searchError) {
-        console.warn('Search API not available, falling back to scraping:', searchError);
+        
+        // Add delay between search variations to avoid rate limits
+        await this.delay(2000);
+      }
+      
+      // Remove duplicates and return if we found leads
+      if (allSearchLeads.length > 0) {
+        const uniqueLeads = this.removeDuplicateLeads(allSearchLeads);
+        console.log(`Total unique leads from all search variations: ${uniqueLeads.length}`);
+        return { success: true, data: uniqueLeads };
       }
 
       // Fallback to scraping if search doesn't work
