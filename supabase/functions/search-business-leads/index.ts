@@ -15,6 +15,7 @@ interface BusinessLead {
   email?: string;
   rating?: number;
   google_place_id?: string;
+  source?: string;
 }
 
 interface PlaceResult {
@@ -73,50 +74,86 @@ serve(async (req) => {
     }
 
     const leads: BusinessLead[] = [];
-    let nextPageToken: string | undefined;
-    const maxPages = Math.ceil(maxResults / 20); // Google returns max 20 per request
-    let currentPage = 0;
-
+    const processedPlaceIds = new Set<string>(); // Prevent duplicates
+    
     try {
-      // Search for businesses using Google Places Text Search
-      while (currentPage < maxPages && leads.length < maxResults) {
-        console.log(`Searching page ${currentPage + 1} of up to ${maxPages}`);
+      // Create multiple search variations for greater coverage
+      const searchVariations = createSearchVariations(location, businessType);
+      
+      console.log(`Created ${searchVariations.length} search variations for comprehensive coverage`);
+      
+      for (const [index, searchQuery] of searchVariations.entries()) {
+        console.log(`\n--- Search Variation ${index + 1}/${searchVariations.length} ---`);
+        console.log(`Query: "${searchQuery}"`);
         
-        const searchQuery = `${businessType} in ${location}`;
-        let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
+        let nextPageToken: string | undefined;
+        let currentPage = 0;
+        const maxPagesPerVariation = 3; // Limit pages per variation to manage API calls
         
-        if (nextPageToken) {
-          url += `&pagetoken=${nextPageToken}`;
-          // Wait for 2 seconds as required by Google Places API when using page tokens
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        console.log(`Google Places API response status: ${data.status}`);
-
-        if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-          console.error('Google Places API error:', data.error_message || data.status);
-          break;
-        }
-
-        if (data.results && data.results.length > 0) {
-          console.log(`Found ${data.results.length} places on page ${currentPage + 1}`);
+        while (currentPage < maxPagesPerVariation && leads.length < maxResults) {
+          console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
           
-          // Get detailed place information in batches
-          const detailedLeads = await getDetailedPlaceInfo(data.results, googleApiKey);
-          leads.push(...detailedLeads);
+          let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
           
-          console.log(`Total leads collected so far: ${leads.length}`);
+          if (nextPageToken) {
+            url += `&pagetoken=${nextPageToken}`;
+            // Wait for 2 seconds as required by Google Places API when using page tokens
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
+          const response = await fetch(url);
+          const data = await response.json();
+
+          console.log(`Google Places API response status: ${data.status}`);
+
+          if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+            console.error('Google Places API error:', data.error_message || data.status);
+            break;
+          }
+
+          if (data.results && data.results.length > 0) {
+            console.log(`Found ${data.results.length} places on page ${currentPage + 1} of variation ${index + 1}`);
+            
+            // Filter out already processed places to avoid duplicates
+            const newPlaces = data.results.filter((place: PlaceResult) => 
+              !processedPlaceIds.has(place.place_id)
+            );
+            
+            console.log(`${newPlaces.length} new unique places (${data.results.length - newPlaces.length} duplicates filtered)`);
+            
+            if (newPlaces.length > 0) {
+              // Mark places as processed
+              newPlaces.forEach((place: PlaceResult) => 
+                processedPlaceIds.add(place.place_id)
+              );
+              
+              // Get detailed place information
+              const detailedLeads = await getDetailedPlaceInfo(newPlaces, googleApiKey);
+              leads.push(...detailedLeads);
+              
+              console.log(`Total unique leads collected so far: ${leads.length}`);
+            }
+          }
+
+          nextPageToken = data.next_page_token;
+          currentPage++;
+
+          // If no more pages available for this variation, break
+          if (!nextPageToken) {
+            console.log(`No more pages available for variation ${index + 1}`);
+            break;
+          }
         }
-
-        nextPageToken = data.next_page_token;
-        currentPage++;
-
-        // If no more pages available, break
-        if (!nextPageToken) {
-          console.log('No more pages available');
+        
+        // Small delay between search variations to respect rate limits
+        if (index < searchVariations.length - 1) {
+          console.log('Waiting before next search variation...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        // Stop if we've reached our target
+        if (leads.length >= maxResults) {
+          console.log(`Reached target of ${maxResults} leads, stopping search`);
           break;
         }
       }
@@ -238,6 +275,56 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
   }
   
   return leads;
+}
+
+function createSearchVariations(location: string, businessType: string): string[] {
+  const variations: string[] = [];
+  
+  // Determine if this is Dublin and create comprehensive search strategy
+  if (location.toLowerCase().includes('dublin')) {
+    const dublinAreas = [
+      'Dublin City Centre',
+      'Dublin 1', 'Dublin 2', 'Dublin 3', 'Dublin 4', 'Dublin 5', 'Dublin 6', 'Dublin 7', 'Dublin 8',
+      'Dublin 9', 'Dublin 10', 'Dublin 11', 'Dublin 12', 'Dublin 13', 'Dublin 14', 'Dublin 15',
+      'Dublin 16', 'Dublin 17', 'Dublin 18', 'Dublin 20', 'Dublin 22', 'Dublin 24',
+      'Ballymun Dublin', 'Blackrock Dublin', 'Blanchardstown Dublin', 'Booterstown Dublin',
+      'Clontarf Dublin', 'Dun Laoghaire Dublin', 'Finglas Dublin', 'Glasnevin Dublin',
+      'Howth Dublin', 'Kilmainham Dublin', 'Lucan Dublin', 'Malahide Dublin',
+      'Rathmines Dublin', 'Rathgar Dublin', 'Sandyford Dublin', 'Swords Dublin',
+      'Tallaght Dublin', 'Temple Bar Dublin', 'Ballsbridge Dublin', 'Donnybrook Dublin',
+      'Terenure Dublin', 'Dundrum Dublin', 'Stillorgan Dublin', 'Dalkey Dublin'
+    ];
+    
+    // Add main city search
+    variations.push(`${businessType} in Dublin Ireland`);
+    variations.push(`${businessType} Dublin`);
+    variations.push(`${businessType} Greater Dublin Area`);
+    
+    // Add specific area searches (limit to avoid too many API calls)
+    const selectedAreas = dublinAreas.slice(0, 15); // Use first 15 areas
+    selectedAreas.forEach(area => {
+      variations.push(`${businessType} in ${area}`);
+    });
+    
+    // Add county-wide searches
+    variations.push(`${businessType} in County Dublin Ireland`);
+    variations.push(`${businessType} near Dublin Ireland`);
+    
+  } else {
+    // For other locations, create general variations
+    variations.push(`${businessType} in ${location}`);
+    variations.push(`${businessType} near ${location}`);
+    variations.push(`${businessType} ${location}`);
+    
+    // Try to extract city/state for broader searches
+    const locationParts = location.split(',').map(part => part.trim());
+    if (locationParts.length > 1) {
+      variations.push(`${businessType} in ${locationParts[0]}`);
+      variations.push(`${businessType} ${locationParts[0]}`);
+    }
+  }
+  
+  return variations;
 }
 
 async function extractEmailFromWebsite(website: string): Promise<string | undefined> {
