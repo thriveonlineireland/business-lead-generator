@@ -214,7 +214,8 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
             website: result.website,
             email: email,
             rating: result.rating,
-            google_place_id: place.place_id
+            google_place_id: place.place_id,
+            source: 'Google Places'
           };
           
           return lead;

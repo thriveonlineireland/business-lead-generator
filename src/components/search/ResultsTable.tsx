@@ -290,7 +290,7 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
                   
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
-                      {lead.source.split(' ')[0]}
+                      {lead.source ? lead.source.split(' ')[0] : 'Google Places'}
                     </Badge>
                   </TableCell>
                   

@@ -7,7 +7,9 @@ export interface BusinessLead {
   website?: string;
   address?: string;
   description?: string;
-  source: string;
+  source?: string;
+  rating?: number;
+  google_place_id?: string;
 }
 
 interface ErrorResponse {
