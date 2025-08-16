@@ -90,7 +90,7 @@ serve(async (req) => {
         let currentPage = 0;
         const maxPagesPerVariation = 3; // Limit pages per variation to manage API calls
         
-        while (currentPage < maxPagesPerVariation && leads.length < maxResults) {
+        do {
           console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
           
           let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
@@ -143,7 +143,7 @@ serve(async (req) => {
             console.log(`No more pages available for variation ${index + 1}`);
             break;
           }
-        }
+        } while (currentPage < maxPagesPerVariation && leads.length < maxResults && nextPageToken);
         
         // Small delay between search variations to respect rate limits
         if (index < searchVariations.length - 1) {
