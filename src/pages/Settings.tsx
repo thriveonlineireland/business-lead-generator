@@ -6,9 +6,10 @@ import { EnhancedButton } from "@/components/ui/enhanced-button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FirecrawlService } from "@/utils/FirecrawlService";
+import { GooglePlacesService } from "@/utils/GooglePlacesService";
 import { StorageService } from "@/utils/StorageService";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, Key, TestTube, CheckCircle, XCircle, Trash2, ExternalLink, Shield, AlertTriangle } from "lucide-react";
+import { Settings as SettingsIcon, Key, TestTube, CheckCircle, XCircle, Trash2, ExternalLink, Shield, AlertTriangle, MapPin } from "lucide-react";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -16,12 +17,24 @@ const Settings = () => {
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyStatus, setKeyStatus] = useState<"valid" | "invalid" | "unknown">("unknown");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Google Places API state
+  const [googleApiKey, setGoogleApiKey] = useState("");
+  const [isTestingGoogleKey, setIsTestingGoogleKey] = useState(false);
+  const [googleKeyStatus, setGoogleKeyStatus] = useState<"valid" | "invalid" | "unknown">("unknown");
+  const [isSavingGoogle, setIsSavingGoogle] = useState(false);
 
   useEffect(() => {
     const savedKey = FirecrawlService.getApiKey();
     if (savedKey) {
       setApiKey(savedKey);
       setKeyStatus("valid"); // Assume valid if saved
+    }
+    
+    const savedGoogleKey = GooglePlacesService.getApiKey();
+    if (savedGoogleKey) {
+      setGoogleApiKey(savedGoogleKey);
+      setGoogleKeyStatus("valid"); // Assume valid if saved
     }
   }, []);
 
@@ -112,13 +125,104 @@ const Settings = () => {
     }
   };
 
+  // Google Places API functions
+  const testGoogleApiKey = async () => {
+    if (!googleApiKey.trim()) {
+      toast({
+        title: "Missing API Key",
+        description: "Please enter your Google Places API key first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTestingGoogleKey(true);
+    try {
+      const isValid = await GooglePlacesService.testApiKey(googleApiKey.trim());
+      setGoogleKeyStatus(isValid ? "valid" : "invalid");
+      
+      toast({
+        title: isValid ? "API Key Valid" : "API Key Invalid",
+        description: isValid 
+          ? "Your Google Places API key is working correctly" 
+          : "The API key is invalid or inactive",
+        variant: isValid ? "default" : "destructive",
+      });
+    } catch (error) {
+      setGoogleKeyStatus("invalid");
+      toast({
+        title: "Test Failed",
+        description: "Unable to test API key. Please check your connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingGoogleKey(false);
+    }
+  };
+
+  const saveGoogleApiKey = async () => {
+    if (!googleApiKey.trim()) {
+      toast({
+        title: "Missing API Key",
+        description: "Please enter your Google Places API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingGoogle(true);
+    try {
+      // Test the key before saving
+      const isValid = await GooglePlacesService.testApiKey(googleApiKey.trim());
+      
+      if (isValid) {
+        GooglePlacesService.saveApiKey(googleApiKey.trim());
+        setGoogleKeyStatus("valid");
+        toast({
+          title: "API Key Saved",
+          description: "Your Google Places API key has been saved successfully",
+        });
+      } else {
+        setGoogleKeyStatus("invalid");
+        toast({
+          title: "Invalid API Key",
+          description: "The API key is invalid. Please check and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Unable to save API key. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingGoogle(false);
+    }
+  };
+
+  const clearGoogleApiKey = () => {
+    if (confirm("Are you sure you want to remove your Google Places API key?")) {
+      GooglePlacesService.clearApiKey();
+      setGoogleApiKey("");
+      setGoogleKeyStatus("unknown");
+      toast({
+        title: "API Key Removed",
+        description: "Your Google Places API key has been removed",
+      });
+    }
+  };
+
   const clearAllData = () => {
-    if (confirm("Are you sure you want to clear all data? This will remove your search history, saved searches, and API key.")) {
+    if (confirm("Are you sure you want to clear all data? This will remove your search history, saved searches, and API keys.")) {
       FirecrawlService.clearApiKey();
+      GooglePlacesService.clearApiKey();
       StorageService.clearSearchHistory();
       // Note: We'd need to add a method to clear saved searches
       setApiKey("");
       setKeyStatus("unknown");
+      setGoogleApiKey("");
+      setGoogleKeyStatus("unknown");
       toast({
         title: "All Data Cleared",
         description: "All application data has been removed",
@@ -126,8 +230,8 @@ const Settings = () => {
     }
   };
 
-  const getStatusIcon = () => {
-    switch (keyStatus) {
+  const getStatusIcon = (status: "valid" | "invalid" | "unknown") => {
+    switch (status) {
       case "valid":
         return <CheckCircle className="h-5 w-5 text-success" />;
       case "invalid":
@@ -137,8 +241,8 @@ const Settings = () => {
     }
   };
 
-  const getStatusBadge = () => {
-    switch (keyStatus) {
+  const getStatusBadge = (status: "valid" | "invalid" | "unknown") => {
+    switch (status) {
       case "valid":
         return <Badge className="bg-success text-success-foreground">Active</Badge>;
       case "invalid":
@@ -154,7 +258,7 @@ const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
-          Configure your Firecrawl API key and manage application data
+          Configure your API keys and manage application data
         </p>
       </div>
 
@@ -164,7 +268,7 @@ const Settings = () => {
           <CardTitle className="flex items-center space-x-2">
             <Key className="h-5 w-5 text-primary" />
             <span>Firecrawl API Configuration</span>
-            {getStatusBadge()}
+            {getStatusBadge(keyStatus)}
           </CardTitle>
           <CardDescription>
             Enter your Firecrawl API key to enable web scraping functionality. 
@@ -183,7 +287,7 @@ const Settings = () => {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="apiKey" className="flex items-center space-x-2">
-              {getStatusIcon()}
+              {getStatusIcon(keyStatus)}
               <span>API Key</span>
             </Label>
             <div className="flex space-x-2">
@@ -257,6 +361,115 @@ const Settings = () => {
               <EnhancedButton
                 variant="outline"
                 onClick={clearApiKey}
+                className="flex items-center space-x-2 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Remove</span>
+              </EnhancedButton>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Places API Configuration */}
+      <Card className="shadow-medium border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            <span>Google Places API Configuration</span>
+            {getStatusBadge(googleKeyStatus)}
+          </CardTitle>
+          <CardDescription>
+            Enter your Google Places API key for comprehensive business data. 
+            Get your key from{" "}
+            <a 
+              href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center"
+            >
+              Google Cloud Console
+              <ExternalLink className="h-3 w-3 ml-1" />
+            </a>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="googleApiKey" className="flex items-center space-x-2">
+              {getStatusIcon(googleKeyStatus)}
+              <span>Google Places API Key</span>
+            </Label>
+            <div className="flex space-x-2">
+              <Input
+                id="googleApiKey"
+                type="password"
+                placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={googleApiKey}
+                onChange={(e) => {
+                  setGoogleApiKey(e.target.value);
+                  setGoogleKeyStatus("unknown");
+                }}
+                className="flex-1 font-mono"
+              />
+              <EnhancedButton
+                variant="outline"
+                onClick={testGoogleApiKey}
+                disabled={isTestingGoogleKey || !googleApiKey.trim()}
+                className="flex items-center space-x-2"
+              >
+                {isTestingGoogleKey ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                    <span>Testing...</span>
+                  </>
+                ) : (
+                  <>
+                    <TestTube className="h-4 w-4" />
+                    <span>Test</span>
+                  </>
+                )}
+              </EnhancedButton>
+            </div>
+            
+            {googleKeyStatus === "valid" && (
+              <div className="flex items-center space-x-2 text-sm text-success">
+                <CheckCircle className="h-4 w-4" />
+                <span>API key is valid and working</span>
+              </div>
+            )}
+            
+            {googleKeyStatus === "invalid" && (
+              <div className="flex items-center space-x-2 text-sm text-destructive">
+                <XCircle className="h-4 w-4" />
+                <span>API key is invalid or inactive</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex space-x-2">
+            <EnhancedButton
+              onClick={saveGoogleApiKey}
+              disabled={isSavingGoogle || !googleApiKey.trim()}
+              variant="gradient"
+              className="flex items-center space-x-2"
+            >
+              {isSavingGoogle ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-4 w-4" />
+                  <span>Save API Key</span>
+                </>
+              )}
+            </EnhancedButton>
+
+            {GooglePlacesService.getApiKey() && (
+              <EnhancedButton
+                variant="outline"
+                onClick={clearGoogleApiKey}
                 className="flex items-center space-x-2 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
               >
                 <Trash2 className="h-4 w-4" />
