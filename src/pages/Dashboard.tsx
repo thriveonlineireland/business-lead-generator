@@ -148,17 +148,6 @@ const Dashboard = () => {
       return;
     }
 
-    // Check Firecrawl API key
-    const firecrawlApiKey = FirecrawlService.getApiKey();
-    if (!firecrawlApiKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please configure your Firecrawl API key in settings to start searching.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     setProgress(0);
     setProgressMessage("Initializing search...");
@@ -169,52 +158,40 @@ const Dashboard = () => {
       const startTime = Date.now();
       
       // Enhanced progress tracking
-      const progressUpdates = [
-        { progress: 20, message: "Preparing search URLs..." },
-        { progress: 40, message: "Crawling business directories..." },
-        { progress: 60, message: "Extracting contact information..." },
-        { progress: 80, message: "Processing leads..." },
-        { progress: 95, message: "Finalizing results..." }
-      ];
-
-      let currentStep = 0;
-      const progressInterval = setInterval(() => {
-        if (currentStep < progressUpdates.length) {
-          const update = progressUpdates[currentStep];
-          setProgress(update.progress);
-          setProgressMessage(update.message);
-          currentStep++;
+      setProgress(20);
+      setProgressMessage("Connecting to Google Places API...");
+      
+      // Call the Edge Function for business search
+      const { data, error } = await supabase.functions.invoke('search-business-leads', {
+        body: {
+          location: searchForm.location,
+          businessType: searchForm.businessType,
+          maxResults: 500
         }
-      }, 1000);
+      });
 
-      // Use Firecrawl for business search
-      const result = await FirecrawlService.searchBusinesses(
-        searchForm.location,
-        searchForm.businessType,
-        searchForm.directory
-      );
+      if (error) {
+        console.error('Edge function error:', error);
+        toast({
+          title: "Search Failed",
+          description: error.message || "An error occurred during the search",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      clearInterval(progressInterval);
       setProgress(100);
       setProgressMessage("Search completed!");
 
-      if (result.success && result.data) {
-        setResults(result.data);
+      if (data.success && data.data) {
+        setResults(data.data);
         const endTime = Date.now();
         const searchTime = (endTime - startTime) / 1000;
         
         setSearchStats({
-          totalFound: result.data.length,
+          totalFound: data.data.length,
           searchTime,
-          creditsUsed: Math.ceil(result.data.length / 10) // Estimate
-        });
-
-        // Save leads and search history to Supabase
-        await saveLeadsToSupabase(result.data);
-        await saveSearchHistoryToSupabase({
-          location: searchForm.location,
-          businessType: searchForm.businessType,
-          resultsCount: result.data.length
+          creditsUsed: Math.ceil(data.data.length / 10) // Estimate
         });
 
         // Also add to local storage as backup
@@ -222,17 +199,17 @@ const Dashboard = () => {
           location: searchForm.location,
           businessType: searchForm.businessType,
           directory: searchForm.directory,
-          resultsCount: result.data.length
+          resultsCount: data.data.length
         });
 
         toast({
           title: "Search Completed",
-          description: `Found ${result.data.length} business leads in ${searchTime.toFixed(1)}s`,
+          description: `Found ${data.data.length} business leads in ${searchTime.toFixed(1)}s`,
         });
       } else {
         toast({
           title: "Search Failed",
-          description: result.error || "An error occurred during the search",
+          description: data.error || "An error occurred during the search",
           variant: "destructive",
         });
       }
@@ -257,7 +234,7 @@ const Dashboard = () => {
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Business Lead Generator</h1>
         <p className="text-muted-foreground">
-          Find and extract contact information from local business directories
+          Get 500+ business leads with contact information instantly - no API setup required!
         </p>
       </div>
 
@@ -327,26 +304,8 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="directory" className="flex items-center space-x-2">
-              <Globe className="h-4 w-4" />
-              <span>Directory Source</span>
-            </Label>
-            <Select value={searchForm.directory} onValueChange={(value) => setSearchForm(prev => ({ ...prev, directory: value }))}>
-              <SelectTrigger className="transition-all duration-200 focus:shadow-soft">
-                <SelectValue placeholder="Select a directory" />
-              </SelectTrigger>
-              <SelectContent>
-                {directories.map((dir) => (
-                  <SelectItem key={dir.value} value={dir.value}>
-                    <div>
-                      <div className="font-medium">{dir.label}</div>
-                      <div className="text-sm text-muted-foreground">{dir.description}</div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="text-center text-sm text-muted-foreground">
+            <span>Powered by Google Places API - No setup required!</span>
           </div>
 
           {isLoading && (
@@ -357,10 +316,7 @@ const Dashboard = () => {
               </div>
               <Progress value={progress} className="transition-all duration-500" />
               <div className="text-xs text-muted-foreground text-center">
-                {searchForm.directory === 'all' 
-                  ? 'Searching across multiple directories for comprehensive results'
-                  : `Searching ${searchForm.directory} directory`
-                }
+                <span>Searching Google Places for comprehensive business data...</span>
               </div>
             </div>
           )}
@@ -387,19 +343,6 @@ const Dashboard = () => {
             </EnhancedButton>
           </div>
 
-          {!FirecrawlService.getApiKey() && (
-            <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-              <div className="text-sm">
-                <span className="text-orange-800">
-                  API key required. 
-                </span>
-                <a href="/settings" className="text-orange-600 hover:underline ml-1">
-                  Configure in Settings →
-                </a>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
