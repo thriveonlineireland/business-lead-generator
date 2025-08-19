@@ -30,12 +30,15 @@ interface PlaceResult {
 }
 
 serve(async (req) => {
+  console.log('Edge function called with method:', req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Parsing request body...');
     const { location, businessType, maxResults = 500 } = await req.json();
     
     console.log(`Starting business search for: ${businessType} in ${location}, max results: ${maxResults}`);
