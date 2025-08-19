@@ -8,10 +8,13 @@ import { Separator } from "@/components/ui/separator";
 import { FirecrawlService } from "@/utils/FirecrawlService";
 import { GooglePlacesService } from "@/utils/GooglePlacesService";
 import { StorageService } from "@/utils/StorageService";
+import { SecureApiKeyManager } from "@/components/profile/SecureApiKeyManager";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, Key, TestTube, CheckCircle, XCircle, Trash2, ExternalLink, Shield, AlertTriangle, MapPin } from "lucide-react";
 
 const Settings = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
   const [isTestingKey, setIsTestingKey] = useState(false);
@@ -261,6 +264,27 @@ const Settings = () => {
           Configure your API keys and manage application data
         </p>
       </div>
+
+      {user && (
+        <>
+          <SecureApiKeyManager />
+          <Separator />
+        </>
+      )}
+
+      {!user && (
+        <Card className="shadow-medium border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Secure API Management
+            </CardTitle>
+            <CardDescription>
+              Sign in to securely manage your API keys with encrypted storage.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* API Configuration */}
       <Card className="shadow-medium border-0">

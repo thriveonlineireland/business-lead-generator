@@ -109,6 +109,8 @@ export type Database = {
           created_at: string
           display_name: string | null
           email: string | null
+          encrypted_firecrawl_api_key: string | null
+          encrypted_google_places_api_key: string | null
           firecrawl_api_key: string | null
           id: string
           updated_at: string
@@ -118,6 +120,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          encrypted_firecrawl_api_key?: string | null
+          encrypted_google_places_api_key?: string | null
           firecrawl_api_key?: string | null
           id?: string
           updated_at?: string
@@ -127,6 +131,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          encrypted_firecrawl_api_key?: string | null
+          encrypted_google_places_api_key?: string | null
           firecrawl_api_key?: string | null
           id?: string
           updated_at?: string

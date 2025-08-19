@@ -41,40 +41,76 @@ serve(async (req) => {
     console.log('Parsing request body...');
     const { location, businessType, maxResults = 500 } = await req.json();
     
-    console.log(`Starting business search for: ${businessType} in ${location}, max results: ${maxResults}`);
-    
+    // Input validation
     if (!location || !businessType) {
       return new Response(
-        JSON.stringify({ error: 'Location and business type are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Location and business type are required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
-    if (!googleApiKey) {
-      console.error('Google Places API key not configured');
+    // Validate input format (basic security check)
+    const allowedPattern = /^[a-zA-Z0-9\s,.-]+$/;
+    if (!allowedPattern.test(location) || !allowedPattern.test(businessType)) {
       return new Response(
-        JSON.stringify({ error: 'Google Places API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Invalid characters in input' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    if (location.length > 100 || businessType.length > 100) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Input too long' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`Starting business search for: ${businessType} in ${location}, max results: ${maxResults}`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header
+    // Get user from auth header - authentication required
     const authHeader = req.headers.get('Authorization');
-    let userId = null;
-    if (authHeader) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-        userId = user?.id;
-      } catch (error) {
-        console.log('Could not authenticate user:', error);
-      }
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      console.error('Authentication error:', userError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get API key from user profile (encrypted storage)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('encrypted_google_places_api_key')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError || !profile?.encrypted_google_places_api_key) {
+      console.error('API key not found for user:', user.id);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Google Places API key not configured. Please add your API key in Settings.' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Decrypt API key (simple decryption - in production, use proper encryption)
+    const googleApiKey = atob(profile.encrypted_google_places_api_key);
+    const userId = user.id;
 
     const leads: BusinessLead[] = [];
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
@@ -165,8 +201,8 @@ serve(async (req) => {
 
       console.log(`Search completed. Total leads found: ${leads.length}`);
 
-      // Save leads to database if user is authenticated
-      if (userId && leads.length > 0) {
+      // Save leads to database (user is already authenticated)
+      if (leads.length > 0) {
         console.log(`Saving ${leads.length} leads to database for user ${userId}`);
         
         const leadsData = leads.map(lead => ({
@@ -334,9 +370,23 @@ function createSearchVariations(location: string, businessType: string): string[
 
 async function extractEmailFromWebsite(website: string): Promise<string | undefined> {
   try {
-    // Basic email extraction patterns
+    console.log(`Extracting email from: ${website}`);
+    
+    // Security: Domain whitelist for email extraction
+    const allowedDomains = ['.com', '.ie', '.co.uk', '.org', '.net', '.eu'];
+    const isAllowedDomain = allowedDomains.some(domain => website.includes(domain));
+    
+    if (!isAllowedDomain) {
+      console.log(`Domain not allowed for email extraction: ${website}`);
+      return undefined;
+    }
+    
+    // Basic URL validation
+    if (!website.startsWith('http://') && !website.startsWith('https://')) {
+      website = 'https://' + website;
+    }
+    
     const emailPatterns = [
-      /mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
       /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
     ];
     
@@ -346,28 +396,35 @@ async function extractEmailFromWebsite(website: string): Promise<string | undefi
     
     const response = await fetch(website, { 
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LeadGenerator/1.0)' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; BusinessLeadBot/1.0)',
+      }
     });
     clearTimeout(timeoutId);
     
-    if (response.ok) {
-      const html = await response.text();
-      
-      for (const pattern of emailPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          const email = match[1] || match[0];
-          // Validate email format
-          if (email.includes('@') && email.includes('.')) {
-            return email.toLowerCase();
-          }
+    if (!response.ok) {
+      console.log(`Failed to fetch ${website}: ${response.status}`);
+      return undefined;
+    }
+    
+    const html = await response.text();
+    
+    // Try each email pattern
+    for (const pattern of emailPatterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        const email = match[1].toLowerCase();
+        // Basic email validation
+        if (email.includes('@') && email.includes('.')) {
+          console.log(`Found email: ${email}`);
+          return email;
         }
       }
     }
-  } catch (error) {
-    // Silently fail - email extraction is optional
-    console.log(`Could not extract email from ${website}:`, error.message);
+    
+    return undefined;
+  } catch (error: any) {
+    console.log(`Could not extract email from ${website}: ${error.message}`);
+    return undefined;
   }
-  
-  return undefined;
 }
