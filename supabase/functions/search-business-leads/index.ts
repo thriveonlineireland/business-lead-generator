@@ -243,8 +243,11 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
         if (data.status === 'OK' && data.result) {
           const result = data.result;
           
-          // Skip email extraction to save CPU time and avoid timeouts
+          // Try to extract email from website if available (with timeout)
           let email: string | undefined;
+          if (result.website) {
+            email = await extractEmailFromWebsite(result.website);
+          }
           
           const lead: BusinessLead = {
             name: result.name || place.name,
@@ -337,9 +340,9 @@ async function extractEmailFromWebsite(website: string): Promise<string | undefi
       /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
     ];
     
-    // Try to fetch the website and extract email
+    // Try to fetch the website with shorter timeout for efficiency
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
     
     const response = await fetch(website, { 
       signal: controller.signal,
