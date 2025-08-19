@@ -80,18 +80,20 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Create multiple search variations for greater coverage
+      // Create limited search variations to stay within resource limits
       const searchVariations = createSearchVariations(location, businessType);
+      const maxVariations = 8; // Limit total variations to avoid CPU timeout
+      const limitedVariations = searchVariations.slice(0, maxVariations);
       
-      console.log(`Created ${searchVariations.length} search variations for comprehensive coverage`);
+      console.log(`Created ${limitedVariations.length} search variations (limited from ${searchVariations.length} for efficiency)`);
       
-      for (const [index, searchQuery] of searchVariations.entries()) {
-        console.log(`\n--- Search Variation ${index + 1}/${searchVariations.length} ---`);
+      for (const [index, searchQuery] of limitedVariations.entries()) {
+        console.log(`\n--- Search Variation ${index + 1}/${limitedVariations.length} ---`);
         console.log(`Query: "${searchQuery}"`);
         
         let nextPageToken: string | undefined;
         let currentPage = 0;
-        const maxPagesPerVariation = 3; // Limit pages per variation to manage API calls
+        const maxPagesPerVariation = 2; // Reduce pages per variation to manage CPU time
         
         do {
           console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
@@ -149,9 +151,9 @@ serve(async (req) => {
         } while (currentPage < maxPagesPerVariation && leads.length < maxResults && nextPageToken);
         
         // Small delay between search variations to respect rate limits
-        if (index < searchVariations.length - 1) {
+        if (index < limitedVariations.length - 1) {
           console.log('Waiting before next search variation...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 500)); // Reduce delay
         }
         
         // Stop if we've reached our target
@@ -241,11 +243,8 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
         if (data.status === 'OK' && data.result) {
           const result = data.result;
           
-          // Try to extract email from website if available
+          // Skip email extraction to save CPU time and avoid timeouts
           let email: string | undefined;
-          if (result.website) {
-            email = await extractEmailFromWebsite(result.website);
-          }
           
           const lead: BusinessLead = {
             name: result.name || place.name,
@@ -304,7 +303,7 @@ function createSearchVariations(location: string, businessType: string): string[
     variations.push(`${businessType} Greater Dublin Area`);
     
     // Add specific area searches (limit to avoid too many API calls)
-    const selectedAreas = dublinAreas.slice(0, 15); // Use first 15 areas
+    const selectedAreas = dublinAreas.slice(0, 6); // Reduce to 6 areas to save CPU
     selectedAreas.forEach(area => {
       variations.push(`${businessType} in ${area}`);
     });
