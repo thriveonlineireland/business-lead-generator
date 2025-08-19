@@ -61,12 +61,27 @@ const Dashboard = () => {
     { value: "Melbourne, Australia", label: "Melbourne, Australia", country: "Australia" },
   ];
 
-  const directories = [
-    { value: "all", label: "All Directories", description: "Search across all sources simultaneously" },
-    { value: "yellowpages", label: "Yellow Pages", description: "Comprehensive business directory" },
-    { value: "yelp", label: "Yelp", description: "Local business reviews and info" },
-    { value: "bbb", label: "Better Business Bureau", description: "Verified business profiles" },
-    { value: "google", label: "Google Search", description: "General business search" }
+  const businessTypes = [
+    { value: "restaurant", label: "Restaurants", description: "Food and dining establishments" },
+    { value: "cafe", label: "Cafes & Coffee Shops", description: "Coffee shops and casual dining" },
+    { value: "retail store", label: "Retail Stores", description: "Shopping and merchandise" },
+    { value: "hair salon", label: "Hair Salons & Spas", description: "Beauty and wellness services" },
+    { value: "fitness center", label: "Gyms & Fitness Centers", description: "Health and fitness facilities" },
+    { value: "dental clinic", label: "Dental Clinics", description: "Dental and oral health services" },
+    { value: "law firm", label: "Law Firms", description: "Legal services and attorneys" },
+    { value: "real estate agent", label: "Real Estate Agencies", description: "Property and real estate services" },
+    { value: "auto repair", label: "Auto Repair Shops", description: "Automotive services and repairs" },
+    { value: "accounting firm", label: "Accounting Services", description: "Financial and tax services" },
+    { value: "medical clinic", label: "Medical Clinics", description: "Healthcare and medical services" },
+    { value: "plumber", label: "Plumbing Services", description: "Plumbing and water services" },
+    { value: "electrician", label: "Electrical Services", description: "Electrical repairs and installation" },
+    { value: "contractor", label: "General Contractors", description: "Construction and renovation" },
+    { value: "pet store", label: "Pet Stores & Services", description: "Pet care and supplies" },
+    { value: "hotel", label: "Hotels & Lodging", description: "Accommodation and hospitality" },
+    { value: "insurance agency", label: "Insurance Agencies", description: "Insurance and financial protection" },
+    { value: "pharmacy", label: "Pharmacies", description: "Pharmaceutical and health supplies" },
+    { value: "veterinarian", label: "Veterinary Clinics", description: "Animal healthcare services" },
+    { value: "bakery", label: "Bakeries", description: "Baked goods and pastries" }
   ];
 
 
@@ -294,13 +309,32 @@ const Dashboard = () => {
                 <Building className="h-4 w-4" />
                 <span>Business Type</span>
               </Label>
-              <Input
-                id="businessType"
-                placeholder="e.g., restaurants, dental clinics, law firms"
-                value={searchForm.businessType}
-                onChange={(e) => setSearchForm(prev => ({ ...prev, businessType: e.target.value }))}
-                className="transition-all duration-200 focus:shadow-soft"
-              />
+              <div className="space-y-2">
+                <Select 
+                  value={searchForm.businessType} 
+                  onValueChange={(value) => setSearchForm(prev => ({ ...prev, businessType: value }))}
+                >
+                  <SelectTrigger className="transition-all duration-200 focus:shadow-soft bg-background z-50">
+                    <SelectValue placeholder="Select a business type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50 max-h-60">
+                    {businessTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{type.label}</span>
+                          <span className="text-xs text-muted-foreground">{type.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Or enter custom business type"
+                  value={searchForm.businessType}
+                  onChange={(e) => setSearchForm(prev => ({ ...prev, businessType: e.target.value }))}
+                  className="transition-all duration-200 focus:shadow-soft text-sm"
+                />
+              </div>
             </div>
           </div>
 
