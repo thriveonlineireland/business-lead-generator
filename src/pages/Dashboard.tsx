@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SecureSearchForm } from "@/components/search/SecureSearchForm";
 import ResultsTable from "@/components/search/ResultsTable";
@@ -8,13 +9,20 @@ import { Badge } from "@/components/ui/badge";
 import QuickActions from "@/components/search/QuickActions";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [searchResults, setSearchResults] = useState<BusinessLead[]>([]);
   const [searchStats, setSearchStats] = useState<{
     totalFound: number;
     searchTime: number;
     creditsUsed: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, isLoading, navigate]);
 
   const handleSearchResults = (results: BusinessLead[]) => {
     setSearchResults(results);
@@ -32,6 +40,23 @@ const Dashboard = () => {
     // This would be handled by the SecureSearchForm component
     console.log('Quick search for:', location, businessType);
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-8">
