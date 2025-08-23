@@ -90,26 +90,19 @@ serve(async (req) => {
       );
     }
 
-    // Get API key from user profile (encrypted storage)
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('encrypted_google_places_api_key')
-      .eq('user_id', user.id)
-      .single();
-
-    if (profileError || !profile?.encrypted_google_places_api_key) {
-      console.error('API key not found for user:', user.id);
+    // Use centralized Google Places API key
+    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    
+    if (!googleApiKey) {
+      console.error('Google Places API key not configured in environment');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Google Places API key not configured. Please add your API key in Settings.' 
+          error: 'Service configuration error. Please contact support.' 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Decrypt API key (simple decryption - in production, use proper encryption)
-    const googleApiKey = atob(profile.encrypted_google_places_api_key);
     const userId = user.id;
 
     const leads: BusinessLead[] = [];

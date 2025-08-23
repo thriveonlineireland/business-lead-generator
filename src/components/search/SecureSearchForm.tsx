@@ -76,8 +76,8 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
       }
 
       if (data?.success) {
-        console.log('Search completed successfully:', data.leads?.length, 'leads found');
-        onResults(data.leads || []);
+        console.log('Search completed successfully:', data.data?.length, 'leads found');
+        onResults(data.data || []);
         
         // Save to search history
         await supabase.from('search_history').insert({
@@ -85,12 +85,12 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
           query: `${businessType} in ${location}`,
           location,
           business_type: businessType,
-          results_count: data.leads?.length || 0
+          results_count: data.data?.length || 0
         });
 
         toast({
           title: "Search Complete",
-          description: `Found ${data.leads?.length || 0} business leads`,
+          description: `Found ${data.data?.length || 0} business leads`,
         });
       } else {
         throw new Error(data?.error || 'Search failed');
