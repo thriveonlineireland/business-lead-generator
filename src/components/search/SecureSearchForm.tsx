@@ -141,7 +141,7 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
           Secure Business Lead Search
         </CardTitle>
         <CardDescription>
-          Search for business leads using our secure, authenticated system.
+          Search for business leads using our secure, authenticated system. For best results in Dublin, use "Dublin" or specific areas like "Dublin 4" or "Sandyford".
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -151,23 +151,29 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
               <Label htmlFor="location">Location</Label>
               <Input
                 id="location"
-                placeholder="e.g., Dublin, Ireland"
+                placeholder="e.g., Dublin, Dublin 4, Sandyford, Cork"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 maxLength={100}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Tip: Use "Dublin" to search the entire Greater Dublin Area, or be specific like "Dublin 2" or "Temple Bar"
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="businessType">Business Type</Label>
               <Input
                 id="businessType"
-                placeholder="e.g., restaurants, dental clinics"
+                placeholder="e.g., hair salon, restaurant, dentist"
                 value={businessType}
                 onChange={(e) => setBusinessType(e.target.value)}
                 maxLength={100}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Tip: Use specific terms like "hair salon" or "dental clinic" rather than generic terms for better results
+              </p>
             </div>
           </div>
           

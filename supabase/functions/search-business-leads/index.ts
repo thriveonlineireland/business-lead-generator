@@ -326,23 +326,26 @@ function createSearchVariations(location: string, businessType: string): string[
       'Howth Dublin', 'Kilmainham Dublin', 'Lucan Dublin', 'Malahide Dublin',
       'Rathmines Dublin', 'Rathgar Dublin', 'Sandyford Dublin', 'Swords Dublin',
       'Tallaght Dublin', 'Temple Bar Dublin', 'Ballsbridge Dublin', 'Donnybrook Dublin',
-      'Terenure Dublin', 'Dundrum Dublin', 'Stillorgan Dublin', 'Dalkey Dublin'
+      'Terenure Dublin', 'Dundrum Dublin', 'Stillorgan Dublin', 'Dalkey Dublin',
+      'Wicklow near Dublin', 'Kildare near Dublin', 'Meath near Dublin'
     ];
     
-    // Add main city search
+    // Add main city searches with priority on Greater Dublin Area coverage
     variations.push(`${businessType} in Dublin Ireland`);
     variations.push(`${businessType} Dublin`);
     variations.push(`${businessType} Greater Dublin Area`);
-    
-    // Add specific area searches (limit to avoid too many API calls)
-    const selectedAreas = dublinAreas.slice(0, 6); // Reduce to 6 areas to save CPU
-    selectedAreas.forEach(area => {
-      variations.push(`${businessType} in ${area}`);
-    });
-    
-    // Add county-wide searches
+    variations.push(`${businessType} Dublin Metro Area`);
     variations.push(`${businessType} in County Dublin Ireland`);
     variations.push(`${businessType} near Dublin Ireland`);
+    
+    // Add specific area searches - prioritize most populated areas
+    const priorityAreas = [
+      'Dublin City Centre', 'Dublin 1', 'Dublin 2', 'Dublin 4', 'Dublin 6', 
+      'Tallaght Dublin', 'Blanchardstown Dublin', 'Swords Dublin'
+    ];
+    priorityAreas.forEach(area => {
+      variations.push(`${businessType} in ${area}`);
+    });
     
   } else {
     // For other locations, create general variations
