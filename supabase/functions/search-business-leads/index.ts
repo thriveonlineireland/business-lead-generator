@@ -112,9 +112,9 @@ serve(async (req) => {
       // Create comprehensive search variations for better coverage
       const searchVariations = createSearchVariations(location, businessType);
       
-      // For Dublin searches, use more comprehensive limits to get 400+ results
+      // Balance comprehensive search with resource limits
       const isDublinSearch = location.toLowerCase().includes('dublin');
-      const maxVariations = isDublinSearch ? 20 : 8; // More variations for Dublin
+      const maxVariations = isDublinSearch ? 12 : 8; // Moderate increase for Dublin
       const limitedVariations = searchVariations.slice(0, maxVariations);
       
       console.log(`Created ${limitedVariations.length} search variations (limited from ${searchVariations.length} for efficiency)`);
@@ -125,7 +125,7 @@ serve(async (req) => {
         
         let nextPageToken: string | undefined;
         let currentPage = 0;
-        const maxPagesPerVariation = isDublinSearch ? 3 : 2; // More pages for Dublin searches
+        const maxPagesPerVariation = 2; // Keep consistent to avoid timeout
         
         do {
           console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
