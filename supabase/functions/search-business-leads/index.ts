@@ -109,85 +109,42 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Lightweight search to prevent timeouts
-      const searchVariations = createSearchVariations(location, businessType);
-      const maxVariations = 4; // Much more conservative
-      const limitedVariations = searchVariations.slice(0, maxVariations);
+      // Ultra-lightweight search to prevent any timeout issues
+      const searchVariations = [`${businessType} in ${location}`, `${businessType} ${location}`];
       
-      console.log(`Using ${limitedVariations.length} search variations for efficiency`);
+      console.log(`Using 2 basic search variations to ensure reliability`);
       
-      for (const [index, searchQuery] of limitedVariations.entries()) {
-        console.log(`\n--- Search ${index + 1}/${limitedVariations.length}: "${searchQuery}"`);
+      for (const [index, searchQuery] of searchVariations.entries()) {
+        console.log(`Search ${index + 1}: "${searchQuery}"`);
         
-        let nextPageToken: string | undefined;
-        let currentPage = 0;
-        const maxPagesPerVariation = 1; // Only first page to prevent timeout
-        
-        do {
-          console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
-          
-          let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
-          
-          if (nextPageToken) {
-            url += `&pagetoken=${nextPageToken}`;
-            // Wait for 2 seconds as required by Google Places API when using page tokens
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-
+        try {
+          const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
           const response = await fetch(url);
           const data = await response.json();
 
-          console.log(`Google Places API response status: ${data.status}`);
+          console.log(`API response status: ${data.status}`);
 
-          if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-            console.error('Google Places API error:', data.error_message || data.status);
-            break;
-          }
-
-          if (data.results && data.results.length > 0) {
-            console.log(`Found ${data.results.length} places on page ${currentPage + 1} of variation ${index + 1}`);
+          if (data.status === 'OK' && data.results && data.results.length > 0) {
+            console.log(`Found ${data.results.length} places`);
             
-            // Filter out already processed places to avoid duplicates
-            const newPlaces = data.results.filter((place: PlaceResult) => 
-              !processedPlaceIds.has(place.place_id)
-            );
+            // Process results quickly without detailed lookups to prevent timeout
+            const quickLeads = data.results.map((place: PlaceResult) => ({
+              name: place.name,
+              address: place.formatted_address,
+              rating: place.rating,
+              google_place_id: place.place_id,
+              source: 'Google Places'
+            }));
             
-            console.log(`${newPlaces.length} new unique places (${data.results.length - newPlaces.length} duplicates filtered)`);
+            leads.push(...quickLeads);
+            console.log(`Total leads so far: ${leads.length}`);
             
-            if (newPlaces.length > 0) {
-              // Mark places as processed
-              newPlaces.forEach((place: PlaceResult) => 
-                processedPlaceIds.add(place.place_id)
-              );
-              
-              // Get detailed place information
-              const detailedLeads = await getDetailedPlaceInfo(newPlaces, googleApiKey);
-              leads.push(...detailedLeads);
-              
-              console.log(`Total unique leads collected so far: ${leads.length}`);
-            }
+            // Stop if we have enough results
+            if (leads.length >= 40) break;
           }
-
-          nextPageToken = data.next_page_token;
-          currentPage++;
-
-          // If no more pages available for this variation, break
-          if (!nextPageToken) {
-            console.log(`No more pages available for variation ${index + 1}`);
-            break;
-          }
-        } while (currentPage < maxPagesPerVariation && leads.length < maxResults && nextPageToken);
-        
-        // Small delay between search variations to respect rate limits
-        if (index < limitedVariations.length - 1) {
-          console.log('Waiting before next search variation...');
-          await new Promise(resolve => setTimeout(resolve, 500)); // Reduce delay
-        }
-        
-        // Stop if we've reached our target
-        if (leads.length >= maxResults) {
-          console.log(`Reached target of ${maxResults} leads, stopping search`);
-          break;
+        } catch (searchError) {
+          console.error(`Search ${index + 1} failed:`, searchError);
+          continue; // Continue with next search
         }
       }
 
