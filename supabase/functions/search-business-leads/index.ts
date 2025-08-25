@@ -109,23 +109,19 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Create comprehensive search variations for better coverage
+      // Lightweight search to prevent timeouts
       const searchVariations = createSearchVariations(location, businessType);
-      
-      // Balance comprehensive search with resource limits
-      const isDublinSearch = location.toLowerCase().includes('dublin');
-      const maxVariations = isDublinSearch ? 12 : 8; // Moderate increase for Dublin
+      const maxVariations = 4; // Much more conservative
       const limitedVariations = searchVariations.slice(0, maxVariations);
       
-      console.log(`Created ${limitedVariations.length} search variations (limited from ${searchVariations.length} for efficiency)`);
+      console.log(`Using ${limitedVariations.length} search variations for efficiency`);
       
       for (const [index, searchQuery] of limitedVariations.entries()) {
-        console.log(`\n--- Search Variation ${index + 1}/${limitedVariations.length} ---`);
-        console.log(`Query: "${searchQuery}"`);
+        console.log(`\n--- Search ${index + 1}/${limitedVariations.length}: "${searchQuery}"`);
         
         let nextPageToken: string | undefined;
         let currentPage = 0;
-        const maxPagesPerVariation = 2; // Keep consistent to avoid timeout
+        const maxPagesPerVariation = 1; // Only first page to prevent timeout
         
         do {
           console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
