@@ -109,9 +109,12 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Create limited search variations to stay within resource limits
+      // Create comprehensive search variations for better coverage
       const searchVariations = createSearchVariations(location, businessType);
-      const maxVariations = 8; // Limit total variations to avoid CPU timeout
+      
+      // For Dublin searches, use more comprehensive limits to get 400+ results
+      const isDublinSearch = location.toLowerCase().includes('dublin');
+      const maxVariations = isDublinSearch ? 20 : 8; // More variations for Dublin
       const limitedVariations = searchVariations.slice(0, maxVariations);
       
       console.log(`Created ${limitedVariations.length} search variations (limited from ${searchVariations.length} for efficiency)`);
@@ -122,7 +125,7 @@ serve(async (req) => {
         
         let nextPageToken: string | undefined;
         let currentPage = 0;
-        const maxPagesPerVariation = 2; // Reduce pages per variation to manage CPU time
+        const maxPagesPerVariation = isDublinSearch ? 3 : 2; // More pages for Dublin searches
         
         do {
           console.log(`Searching page ${currentPage + 1} of variation ${index + 1}`);
@@ -338,12 +341,29 @@ function createSearchVariations(location: string, businessType: string): string[
     variations.push(`${businessType} in County Dublin Ireland`);
     variations.push(`${businessType} near Dublin Ireland`);
     
-    // Add specific area searches - prioritize most populated areas
+    // Add specific area searches - prioritize most populated areas first, then add more comprehensive coverage
     const priorityAreas = [
       'Dublin City Centre', 'Dublin 1', 'Dublin 2', 'Dublin 4', 'Dublin 6', 
       'Tallaght Dublin', 'Blanchardstown Dublin', 'Swords Dublin'
     ];
+    
+    // Add more comprehensive area coverage for better results
+    const additionalAreas = [
+      'Dublin 3', 'Dublin 5', 'Dublin 7', 'Dublin 8', 'Dublin 9', 'Dublin 10',
+      'Dublin 11', 'Dublin 12', 'Dublin 13', 'Dublin 14', 'Dublin 15', 'Dublin 16',
+      'Dublin 17', 'Dublin 18', 'Dublin 20', 'Dublin 22', 'Dublin 24',
+      'Rathmines Dublin', 'Rathgar Dublin', 'Sandyford Dublin', 'Dundrum Dublin',
+      'Blackrock Dublin', 'Dun Laoghaire Dublin', 'Clontarf Dublin', 'Howth Dublin',
+      'Malahide Dublin', 'Ballsbridge Dublin', 'Donnybrook Dublin', 'Terenure Dublin'
+    ];
+    
+    // Add all priority areas
     priorityAreas.forEach(area => {
+      variations.push(`${businessType} in ${area}`);
+    });
+    
+    // Add additional areas for comprehensive coverage
+    additionalAreas.forEach(area => {
       variations.push(`${businessType} in ${area}`);
     });
     
