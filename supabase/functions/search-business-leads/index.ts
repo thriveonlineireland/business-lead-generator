@@ -109,43 +109,90 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Ultra-lightweight search to prevent any timeout issues
-      const searchVariations = [`${businessType} in ${location}`, `${businessType} ${location}`];
+      // Use comprehensive search strategy to get up to maxResults leads
+      const searchVariations = createSearchVariations(location, businessType);
+      console.log(`Using ${searchVariations.length} search variations to find ${maxResults} leads`);
       
-      console.log(`Using 2 basic search variations to ensure reliability`);
+      const allPlaces: PlaceResult[] = [];
       
-      for (const [index, searchQuery] of searchVariations.entries()) {
-        console.log(`Search ${index + 1}: "${searchQuery}"`);
+      // Process search variations in batches to respect API limits
+      const maxVariations = Math.min(searchVariations.length, 15); // Limit variations to prevent timeout
+      
+      for (let i = 0; i < maxVariations && allPlaces.length < maxResults; i++) {
+        const searchQuery = searchVariations[i];
+        console.log(`Search ${i + 1}/${maxVariations}: "${searchQuery}"`);
         
         try {
-          const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
-          const response = await fetch(url);
-          const data = await response.json();
+          // Initial search
+          let nextPageToken: string | undefined;
+          let pageCount = 0;
+          const maxPagesPerQuery = 3; // Each page gives up to 20 results
+          
+          do {
+            let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
+            if (nextPageToken) {
+              url += `&pagetoken=${nextPageToken}`;
+            }
+            
+            const response = await fetch(url);
+            const data = await response.json();
 
-          console.log(`API response status: ${data.status}`);
+            console.log(`API response status: ${data.status}, page ${pageCount + 1}`);
 
-          if (data.status === 'OK' && data.results && data.results.length > 0) {
-            console.log(`Found ${data.results.length} places`);
-            
-            // Process results quickly without detailed lookups to prevent timeout
-            const quickLeads = data.results.map((place: PlaceResult) => ({
-              name: place.name,
-              address: place.formatted_address,
-              rating: place.rating,
-              google_place_id: place.place_id,
-              source: 'Google Places'
-            }));
-            
-            leads.push(...quickLeads);
-            console.log(`Total leads so far: ${leads.length}`);
-            
-            // Stop if we have enough results
-            if (leads.length >= 40) break;
-          }
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+              console.log(`Found ${data.results.length} places on page ${pageCount + 1}`);
+              
+              // Filter out duplicates and add to allPlaces
+              const newPlaces = data.results.filter((place: PlaceResult) => 
+                !processedPlaceIds.has(place.place_id)
+              );
+              
+              newPlaces.forEach((place: PlaceResult) => {
+                processedPlaceIds.add(place.place_id);
+                allPlaces.push(place);
+              });
+              
+              console.log(`Total unique places so far: ${allPlaces.length}`);
+              
+              // Check for next page
+              nextPageToken = data.next_page_token;
+              pageCount++;
+              
+              // Stop if we have enough results
+              if (allPlaces.length >= maxResults) break;
+              
+              // Required delay between pagination requests
+              if (nextPageToken && pageCount < maxPagesPerQuery) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            } else if (data.status === 'ZERO_RESULTS') {
+              console.log(`No results for query: ${searchQuery}`);
+              break;
+            } else {
+              console.error(`API error for query "${searchQuery}":`, data.status, data.error_message);
+              break;
+            }
+          } while (nextPageToken && pageCount < maxPagesPerQuery && allPlaces.length < maxResults);
+          
         } catch (searchError) {
-          console.error(`Search ${index + 1} failed:`, searchError);
+          console.error(`Search ${i + 1} failed:`, searchError);
           continue; // Continue with next search
         }
+        
+        // Small delay between different search queries
+        if (i < maxVariations - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      console.log(`Search phase completed. Found ${allPlaces.length} unique places`);
+
+      // Get detailed information for all places (phone, website, email)
+      if (allPlaces.length > 0) {
+        console.log(`Getting detailed information for ${allPlaces.length} places...`);
+        const detailedLeads = await getDetailedPlaceInfo(allPlaces, googleApiKey);
+        leads.push(...detailedLeads);
+        console.log(`Processed ${detailedLeads.length} leads with detailed information`);
       }
 
       console.log(`Search completed. Total leads found: ${leads.length}`);
