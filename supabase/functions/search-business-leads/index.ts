@@ -39,7 +39,7 @@ serve(async (req) => {
 
   try {
     console.log('Parsing request body...');
-    const { location, businessType, maxResults = 500 } = await req.json();
+    const { location, businessType, maxResults = 500, businessKeywords = [], locationTerms = [] } = await req.json();
     
     // Input validation
     if (!location || !businessType) {
@@ -109,9 +109,14 @@ serve(async (req) => {
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
     
     try {
-      // Use comprehensive search strategy to get up to maxResults leads
-      const searchVariations = createSearchVariations(location, businessType);
-      console.log(`Using ${searchVariations.length} search variations to find ${maxResults} leads`);
+      // Use optimized search strategy with provided keywords and terms
+      const searchVariations = createOptimizedSearchVariations(
+        location, 
+        businessType, 
+        businessKeywords.length > 0 ? businessKeywords : [businessType],
+        locationTerms.length > 0 ? locationTerms : [location]
+      );
+      console.log(`Using ${searchVariations.length} optimized search variations to find ${maxResults} leads`);
       
       const allPlaces: PlaceResult[] = [];
       
@@ -312,6 +317,45 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
   }
   
   return leads;
+}
+
+function createOptimizedSearchVariations(
+  location: string, 
+  businessType: string, 
+  businessKeywords: string[],
+  locationTerms: string[]
+): string[] {
+  const variations: string[] = [];
+  
+  console.log(`Creating optimized searches with ${businessKeywords.length} business keywords and ${locationTerms.length} location terms`);
+  
+  // Create comprehensive combinations of business keywords and location terms
+  for (const locationTerm of locationTerms) {
+    for (const businessKeyword of businessKeywords) {
+      // Primary variations
+      variations.push(`${businessKeyword} in ${locationTerm}`);
+      variations.push(`${businessKeyword} ${locationTerm}`);
+      variations.push(`${businessKeyword} near ${locationTerm}`);
+      
+      // Add "best" prefix for quality results
+      variations.push(`best ${businessKeyword} in ${locationTerm}`);
+      
+      // Add plural variations
+      const pluralBusiness = businessKeyword.endsWith('s') ? businessKeyword : `${businessKeyword}s`;
+      variations.push(`${pluralBusiness} in ${locationTerm}`);
+    }
+  }
+  
+  // Add original fallback variations
+  variations.push(`${businessType} in ${location}`);
+  variations.push(`${businessType} ${location}`);
+  
+  // Remove duplicates and limit to prevent timeout
+  const uniqueVariations = [...new Set(variations)];
+  console.log(`Generated ${uniqueVariations.length} unique search variations`);
+  
+  // Return up to 20 variations for optimal coverage without timeout
+  return uniqueVariations.slice(0, 20);
 }
 
 function createSearchVariations(location: string, businessType: string): string[] {

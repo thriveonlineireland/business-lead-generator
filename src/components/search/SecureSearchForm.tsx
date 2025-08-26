@@ -1,24 +1,41 @@
-import { useState } from 'react';
+import { useState, useImperativeHandle, forwardRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Search, Shield, AlertTriangle } from 'lucide-react';
 import { BusinessLead } from '@/utils/FirecrawlService';
+import { BusinessTypeSelector, getBusinessTypeKeywords } from './BusinessTypeSelector';
+import { LocationSelector, getLocationSearchTerms } from './LocationSelector';
 
 interface SecureSearchFormProps {
   onResults: (results: BusinessLead[]) => void;
 }
 
-export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
+export interface SearchFormRef {
+  triggerSearch: (location: string, businessType: string) => void;
+}
+
+export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>(
+  ({ onResults }, ref) => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    triggerSearch: (newLocation: string, newBusinessType: string) => {
+      setLocation(newLocation);
+      setBusinessType(newBusinessType);
+      // Trigger search with new values
+      setTimeout(() => {
+        performSearch(newLocation, newBusinessType);
+      }, 100);
+    }
+  }));
 
   // Input validation
   const validateInput = (input: string): boolean => {
@@ -27,8 +44,9 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
     return allowedPattern.test(input) && input.length <= 100;
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performSearch = async (searchLocation?: string, searchBusinessType?: string) => {
+    const finalLocation = searchLocation || location;
+    const finalBusinessType = searchBusinessType || businessType;
     
     if (!user) {
       toast({
@@ -40,7 +58,7 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
     }
 
     // Validate inputs
-    if (!validateInput(location) || !validateInput(businessType)) {
+    if (!validateInput(finalLocation) || !validateInput(finalBusinessType)) {
       toast({
         title: "Invalid Input",
         description: "Please use only letters, numbers, spaces, commas, periods, and hyphens",
@@ -49,7 +67,7 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
       return;
     }
 
-    if (!location.trim() || !businessType.trim()) {
+    if (!finalLocation.trim() || !finalBusinessType.trim()) {
       toast({
         title: "Missing Information",
         description: "Please enter both location and business type",
@@ -61,12 +79,18 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
     setIsSearching(true);
     
     try {
-      console.log('Starting secure search for:', { location, businessType });
+      console.log('Starting secure search for:', { location: finalLocation, businessType: finalBusinessType });
+      
+      // Get optimized search terms
+      const businessKeywords = getBusinessTypeKeywords(finalBusinessType);
+      const locationTerms = getLocationSearchTerms(finalLocation);
       
       const { data, error } = await supabase.functions.invoke('search-business-leads', {
         body: {
-          location: location.trim(),
-          businessType: businessType.trim()
+          location: finalLocation.trim(),
+          businessType: finalBusinessType.trim(),
+          businessKeywords,
+          locationTerms
         }
       });
 
@@ -82,9 +106,9 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
         // Save to search history
         await supabase.from('search_history').insert({
           user_id: user.id,
-          query: `${businessType} in ${location}`,
-          location,
-          business_type: businessType,
+          query: `${finalBusinessType} in ${finalLocation}`,
+          location: finalLocation,
+          business_type: finalBusinessType,
           results_count: data.data?.length || 0
         });
 
@@ -105,6 +129,11 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performSearch();
   };
 
   if (authLoading) {
@@ -141,52 +170,32 @@ export const SecureSearchForm = ({ onResults }: SecureSearchFormProps) => {
           Secure Business Lead Search
         </CardTitle>
         <CardDescription>
-          Search for business leads using our secure, authenticated system. For best results in Dublin, use "Dublin" or specific areas like "Dublin 4" or "Sandyford".
+          Search for business leads using our secure, authenticated system with optimized business types and locations for maximum results.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSearch} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                placeholder="e.g., Dublin, Dublin 4, Sandyford, Cork"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                maxLength={100}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                💡 Tip: Use "Dublin" to search the entire Greater Dublin Area, or be specific like "Dublin 2" or "Temple Bar"
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="businessType">Business Type</Label>
-              <Input
-                id="businessType"
-                placeholder="e.g., hair salon, restaurant, dentist"
-                value={businessType}
-                onChange={(e) => setBusinessType(e.target.value)}
-                maxLength={100}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                💡 Tip: Use specific terms like "hair salon" or "dental clinic" rather than generic terms for better results
-              </p>
-            </div>
+            <LocationSelector 
+              value={location} 
+              onValueChange={setLocation} 
+            />
+            <BusinessTypeSelector 
+              value={businessType} 
+              onValueChange={setBusinessType} 
+            />
           </div>
           
           <Button 
             type="submit" 
-            disabled={isSearching}
+            disabled={isSearching || !location || !businessType}
             className="w-full"
           >
             <Search className="mr-2 h-4 w-4" />
-            {isSearching ? 'Searching...' : 'Search Business Leads'}
+            {isSearching ? 'Searching for 500+ leads...' : 'Search Business Leads (Target: 500+)'}
           </Button>
         </form>
       </CardContent>
     </Card>
   );
-};
+});

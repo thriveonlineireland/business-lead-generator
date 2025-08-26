@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { SecureSearchForm } from "@/components/search/SecureSearchForm";
+import { SecureSearchForm, SearchFormRef } from "@/components/search/SecureSearchForm";
 import ResultsTable from "@/components/search/ResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,7 @@ const Dashboard = () => {
     searchTime: number;
     creditsUsed: number;
   } | null>(null);
+  const searchFormRef = useRef<SearchFormRef>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -35,10 +36,11 @@ const Dashboard = () => {
     });
   };
 
-
   const handleQuickSearch = (location: string, businessType: string) => {
-    // This would be handled by the SecureSearchForm component
-    console.log('Quick search for:', location, businessType);
+    // Trigger search by calling the SecureSearchForm's method
+    if (searchFormRef.current) {
+      searchFormRef.current.triggerSearch(location, businessType);
+    }
   };
 
   if (isLoading) {
@@ -70,7 +72,10 @@ const Dashboard = () => {
       {/* Quick Actions */}
       <QuickActions onQuickSearch={handleQuickSearch} />
 
-      <SecureSearchForm onResults={handleSearchResults} />
+      <SecureSearchForm 
+        ref={searchFormRef}
+        onResults={handleSearchResults} 
+      />
 
       {/* Search Stats */}
       {searchStats && (

@@ -9,12 +9,14 @@ interface QuickActionsProps {
 
 const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
   const quickSearches = [
-    { location: "New York, NY", businessType: "restaurants", label: "NYC Restaurants" },
-    { location: "Los Angeles, CA", businessType: "dental clinics", label: "LA Dental" },
-    { location: "Chicago, IL", businessType: "law firms", label: "Chicago Law" },
-    { location: "Miami, FL", businessType: "real estate agents", label: "Miami Real Estate" },
-    { location: "Seattle, WA", businessType: "coffee shops", label: "Seattle Coffee" },
-    { location: "Austin, TX", businessType: "tech companies", label: "Austin Tech" },
+    { location: "Dublin, Ireland", businessType: "hair-salon", label: "Dublin Hair Salons" },
+    { location: "Dublin 2, Ireland", businessType: "restaurant", label: "Dublin 2 Restaurants" },
+    { location: "Cork, Ireland", businessType: "dentist", label: "Cork Dentists" },
+    { location: "London, UK", businessType: "lawyer", label: "London Lawyers" },
+    { location: "Dublin 4, Ireland", businessType: "cafe", label: "Dublin 4 Cafes" },
+    { location: "Manchester, UK", businessType: "accountant", label: "Manchester Accountants" },
+    { location: "New York, NY, USA", businessType: "real-estate", label: "NYC Real Estate" },
+    { location: "Los Angeles, CA, USA", businessType: "beauty-salon", label: "LA Beauty" }
   ];
 
   return (
@@ -25,11 +27,11 @@ const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
           <span>Quick Searches</span>
         </CardTitle>
         <CardDescription>
-          Get started quickly with these popular search combinations
+          Get started quickly with optimized search combinations for maximum results
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
           {quickSearches.map((search, index) => (
             <EnhancedButton
               key={index}
@@ -40,7 +42,7 @@ const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
             >
               <span className="text-xs font-medium text-center">{search.label}</span>
               <Badge variant="secondary" className="text-xs">
-                {search.businessType}
+                Target: 500+ leads
               </Badge>
             </EnhancedButton>
           ))}
