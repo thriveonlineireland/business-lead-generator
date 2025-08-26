@@ -20,6 +20,50 @@ const Auth = () => {
     password: "",
     displayName: ""
   });
+  const [resendLoading, setResendLoading] = useState(false);
+
+  const handleResendConfirmation = async () => {
+    if (!formData.email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address to resend confirmation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Resend failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Confirmation email sent",
+          description: "Please check your email for the confirmation link.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend confirmation email.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -44,7 +88,7 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `${window.location.origin}/auth/confirm`;
       
       const { error } = await supabase.auth.signUp({
         email: formData.email,
@@ -75,13 +119,11 @@ const Auth = () => {
       } else {
         toast({
           title: "Account created!",
-          description: "Please check your email to confirm your account. You can also start using the app right away.",
+          description: "Please check your email to confirm your account before signing in.",
         });
-        // User might be automatically logged in, check session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          navigate("/dashboard");
-        }
+        // Switch to sign in mode after successful registration
+        setIsSignUp(false);
+        setFormData({ email: formData.email, password: "", displayName: "" });
       }
     } catch (error) {
       toast({
@@ -109,6 +151,12 @@ const Auth = () => {
           toast({
             title: "Invalid credentials",
             description: "Please check your email and password and try again.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes("Email not confirmed")) {
+          toast({
+            title: "Email not confirmed",
+            description: "Please check your email and click the confirmation link before signing in.",
             variant: "destructive",
           });
         } else {
@@ -271,6 +319,22 @@ const Auth = () => {
                   <>Don't have an account? <span className="text-primary font-medium">Sign up</span></>
                 )}
               </button>
+              
+              {!isSignUp && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Haven't received your confirmation email?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendLoading}
+                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    {resendLoading ? "Sending..." : "Resend confirmation email"}
+                  </button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

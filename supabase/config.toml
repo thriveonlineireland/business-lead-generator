@@ -46,8 +46,8 @@ file_size_limit = "50MiB"
 [auth]
 enabled = true
 port = 54329
-site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+site_url = "http://localhost:8080"
+additional_redirect_urls = ["https://localhost:8080", "http://127.0.0.1:8080", "https://127.0.0.1:8080"]
 jwt_expiry = 1800
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
@@ -56,8 +56,9 @@ enable_manual_linking = false
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
-template_map = {}
+enable_confirmations = true
+secure_email_change_enabled = true
+max_frequency = "1m"
 
 [edge_functions]
 enabled = true

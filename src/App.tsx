@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import SearchHistory from "./pages/SearchHistory";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import EmailConfirmation from "./pages/EmailConfirmation";
 import NotFound from "./pages/NotFound";
 import Navigation from "./components/layout/Navigation";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/confirm" element={<EmailConfirmation />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/history" element={<SearchHistory />} />
             <Route path="/settings" element={<Settings />} />
