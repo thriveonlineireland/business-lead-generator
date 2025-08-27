@@ -80,10 +80,20 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     
     try {
       console.log('Starting secure search for:', { location: finalLocation, businessType: finalBusinessType });
+      console.log('User authenticated:', !!user, 'User ID:', user?.id);
       
       // Get optimized search terms
       const businessKeywords = getBusinessTypeKeywords(finalBusinessType);
       const locationTerms = getLocationSearchTerms(finalLocation);
+      
+      console.log('Search parameters:', {
+        location: finalLocation.trim(),
+        businessType: finalBusinessType.trim(),
+        businessKeywords,
+        locationTerms,
+        keywordCount: businessKeywords.length,
+        locationTermCount: locationTerms.length
+      });
       
       const { data, error } = await supabase.functions.invoke('search-business-leads', {
         body: {
@@ -93,6 +103,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
           locationTerms
         }
       });
+      
+      console.log('Supabase function response:', { data, error });
 
       if (error) {
         console.error('Search error:', error);
