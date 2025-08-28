@@ -102,13 +102,30 @@ const Auth = () => {
       });
 
       if (error) {
-        if (error.message.includes("already registered")) {
+        // Check for various "user already exists" error scenarios
+        const isUserExists = error.message.includes("already registered") || 
+                           error.message.includes("User already registered") ||
+                           error.message.includes("already been registered") ||
+                           error.code === "user_already_exists";
+
+        if (isUserExists) {
           toast({
-            title: "Account exists",
-            description: "This email is already registered. Try signing in instead.",
-            variant: "destructive",
+            title: "Account Already Exists",
+            description: (
+              <div className="space-y-2">
+                <p>This email is already registered.</p>
+                <p className="text-sm text-green-600">✅ Switched to sign-in mode for you!</p>
+              </div>
+            ),
+            variant: "default",
           });
+          // Auto-switch to sign-in and keep the email
           setIsSignUp(false);
+          setFormData(prev => ({ 
+            ...prev, 
+            password: "", 
+            displayName: "" 
+          }));
         } else {
           toast({
             title: "Sign up failed",
