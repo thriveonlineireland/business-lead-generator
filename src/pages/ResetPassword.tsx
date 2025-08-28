@@ -21,19 +21,36 @@ const ResetPassword = () => {
   });
 
   useEffect(() => {
-    // Check if we have the necessary params for password reset
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    // Debug: Log URL parameters and session info
+    console.log('Reset password page loaded');
+    console.log('Search params:', Object.fromEntries(searchParams.entries()));
+    console.log('Hash:', window.location.hash);
     
-    if (!accessToken || !refreshToken) {
-      toast({
-        title: "Invalid reset link",
-        description: "This password reset link is invalid or has expired.",
-        variant: "destructive",
-      });
-      navigate("/auth");
-    }
-  }, [searchParams, navigate, toast]);
+    // Check if user is already authenticated via reset link
+    const checkAuthState = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('Session check:', { session, error });
+      
+      if (!session) {
+        // Give it a moment for Supabase to process the URL params
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          console.log('Retry session check:', retrySession);
+          
+          if (!retrySession) {
+            toast({
+              title: "Invalid reset link",
+              description: "This password reset link is invalid or has expired. Please request a new one.",
+              variant: "destructive",
+            });
+            navigate("/auth");
+          }
+        }, 1000);
+      }
+    };
+    
+    checkAuthState();
+  }, [navigate, toast, searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
