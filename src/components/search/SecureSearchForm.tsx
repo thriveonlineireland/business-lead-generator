@@ -95,6 +95,9 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
           businessType: finalBusinessType.trim(),
           businessKeywords,
           locationTerms
+        },
+        headers: user ? undefined : {
+          'Authorization': 'Bearer guest'
         }
       });
       
@@ -102,6 +105,12 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
 
       if (error) {
         console.error('Search error:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        toast({
+          title: "Search Failed", 
+          description: `Error: ${error.message || JSON.stringify(error)}`,
+          variant: "destructive",
+        });
         throw error;
       }
 
@@ -125,7 +134,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
           description: `Found ${data.data?.length || 0} business leads`,
         });
       } else {
-        throw new Error(data?.error || 'Search failed');
+        console.error('Search failed - data:', data);
+        throw new Error(data?.error || 'Search failed - no data returned');
       }
     } catch (error) {
       console.error('Search failed:', error);

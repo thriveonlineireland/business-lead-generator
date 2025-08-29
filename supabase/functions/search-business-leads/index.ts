@@ -76,16 +76,20 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     let user = null;
     
-    if (authHeader) {
+    if (authHeader && authHeader !== 'Bearer guest') {
       try {
         const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
         if (!userError && authUser) {
           user = authUser;
           console.log('Authenticated user:', user.email);
+        } else {
+          console.log('Invalid auth token, continuing as guest user');
         }
       } catch (error) {
         console.log('Authentication optional - continuing as guest user');
       }
+    } else {
+      console.log('No auth header or guest token - continuing as guest user');
     }
     
     console.log('Search mode:', user ? 'authenticated' : 'guest');
@@ -244,6 +248,8 @@ serve(async (req) => {
 
     } catch (error) {
       console.error('Error during business search:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return new Response(
         JSON.stringify({ 
           success: false, 
