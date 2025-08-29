@@ -19,11 +19,7 @@ const Dashboard = () => {
   } | null>(null);
   const searchFormRef = useRef<SearchFormRef>(null);
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, isLoading, navigate]);
+  // Remove auth requirement - allow both authenticated and guest users
 
   const handleSearchResults = (results: BusinessLead[]) => {
     setSearchResults(results);
@@ -56,16 +52,14 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) {
-    return null; // Will redirect in useEffect
-  }
+  // Dashboard now works for both authenticated and guest users
 
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-8">
       <div>
         <h1 className="text-3xl font-bold mb-2">Business Lead Dashboard</h1>
         <p className="text-muted-foreground">
-          Search and manage your business leads with our secure platform
+          {user ? 'Search and manage your business leads with our secure platform' : 'Try our lead search - sign in to save your results'}
         </p>
       </div>
 

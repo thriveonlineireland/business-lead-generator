@@ -47,15 +47,6 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
   const performSearch = async (searchLocation?: string, searchBusinessType?: string) => {
     const finalLocation = searchLocation || location;
     const finalBusinessType = searchBusinessType || businessType;
-    
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to perform searches",
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Validate inputs
     if (!validateInput(finalLocation) || !validateInput(finalBusinessType)) {
@@ -115,14 +106,16 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         console.log('Search completed successfully:', data.data?.length, 'leads found');
         onResults(data.data || []);
         
-        // Save to search history
-        await supabase.from('search_history').insert({
-          user_id: user.id,
-          query: `${finalBusinessType} in ${finalLocation}`,
-          location: finalLocation,
-          business_type: finalBusinessType,
-          results_count: data.data?.length || 0
-        });
+        // Save to search history only for authenticated users
+        if (user) {
+          await supabase.from('search_history').insert({
+            user_id: user.id,
+            query: `${finalBusinessType} in ${finalLocation}`,
+            location: finalLocation,
+            business_type: finalBusinessType,
+            results_count: data.data?.length || 0
+          });
+        }
 
         toast({
           title: "Search Complete",
@@ -158,56 +151,40 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     );
   }
 
-  if (!user) {
-    return (
+  return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-warning" />
-            Authentication Required
+            <Search className="h-5 w-5 text-primary" />
+            Business Lead Search
           </CardTitle>
           <CardDescription>
-            Please sign in to use the business lead search feature.
+            Try our business lead search! {!user && "Sign in to save your search history and results."}
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <LocationSelector 
+                value={location} 
+                onValueChange={setLocation} 
+              />
+              <BusinessTypeSelector 
+                value={businessType} 
+                onValueChange={setBusinessType} 
+              />
+            </div>
+            
+            <Button 
+              type="submit" 
+              disabled={isSearching || !location || !businessType}
+              className="w-full"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              {isSearching ? 'Searching for 500+ leads...' : 'Search Business Leads (Target: 500+)'}
+            </Button>
+          </form>
+        </CardContent>
       </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" />
-          Secure Business Lead Search
-        </CardTitle>
-        <CardDescription>
-          Search for business leads using our secure, authenticated system with optimized business types and locations for maximum results.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSearch} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <LocationSelector 
-              value={location} 
-              onValueChange={setLocation} 
-            />
-            <BusinessTypeSelector 
-              value={businessType} 
-              onValueChange={setBusinessType} 
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            disabled={isSearching || !location || !businessType}
-            className="w-full"
-          >
-            <Search className="mr-2 h-4 w-4" />
-            {isSearching ? 'Searching for 500+ leads...' : 'Search Business Leads (Target: 500+)'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 });
