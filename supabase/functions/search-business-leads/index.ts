@@ -72,23 +72,23 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header - authentication required
+    // Get user from auth header - authentication is optional for guest searches
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Authentication required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let user = null;
+    
+    if (authHeader) {
+      try {
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+        if (!userError && authUser) {
+          user = authUser;
+          console.log('Authenticated user:', user.email);
+        }
+      } catch (error) {
+        console.log('Authentication optional - continuing as guest user');
+      }
     }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (userError || !user) {
-      console.error('Authentication error:', userError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Authentication required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    
+    console.log('Search mode:', user ? 'authenticated' : 'guest');
 
     // Use centralized Google Places API key
     const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
@@ -103,7 +103,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    const userId = user.id;
+    const userId = user?.id;
 
     const leads: BusinessLead[] = [];
     const processedPlaceIds = new Set<string>(); // Prevent duplicates
@@ -202,8 +202,8 @@ serve(async (req) => {
 
       console.log(`Search completed. Total leads found: ${leads.length}`);
 
-      // Save leads to database (user is already authenticated)
-      if (leads.length > 0) {
+      // Save leads to database only for authenticated users
+      if (leads.length > 0 && user && userId) {
         console.log(`Saving ${leads.length} leads to database for user ${userId}`);
         
         const leadsData = leads.map(lead => ({
@@ -228,6 +228,8 @@ serve(async (req) => {
         } else {
           console.log('Successfully saved leads to database');
         }
+      } else if (leads.length > 0) {
+        console.log('Guest search - results not saved to database');
       }
 
       return new Response(

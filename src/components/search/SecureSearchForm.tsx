@@ -8,6 +8,7 @@ import { Search, Shield, AlertTriangle } from 'lucide-react';
 import { BusinessLead } from '@/utils/FirecrawlService';
 import { BusinessTypeSelector, getBusinessTypeKeywords } from './BusinessTypeSelector';
 import { LocationSelector, getLocationSearchTerms } from './LocationSelector';
+import { SearchProgressModal } from './SearchProgressModal';
 
 interface SecureSearchFormProps {
   onResults: (results: BusinessLead[]) => void;
@@ -24,6 +25,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
   const [location, setLocation] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
 
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
@@ -68,6 +70,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     }
 
     setIsSearching(true);
+    setShowProgressModal(true);
     
     try {
       console.log('Starting secure search for:', { location: finalLocation, businessType: finalBusinessType });
@@ -133,6 +136,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       });
     } finally {
       setIsSearching(false);
+      setShowProgressModal(false);
     }
   };
 
@@ -152,6 +156,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
   }
 
   return (
+    <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -186,5 +191,17 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
           </form>
         </CardContent>
       </Card>
+      
+      <SearchProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        location={location}
+        businessType={businessType}
+        onCancel={() => {
+          setIsSearching(false);
+          setShowProgressModal(false);
+        }}
+      />
+    </>
   );
 });
