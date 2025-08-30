@@ -22,6 +22,8 @@ const Dashboard = () => {
   // Remove auth requirement - allow both authenticated and guest users
 
   const handleSearchResults = (results: BusinessLead[]) => {
+    console.log('handleSearchResults called with:', results?.length, 'results');
+    console.log('Sample result:', results?.[0]);
     setSearchResults(results);
     
     const searchTime = 1.5; // Estimate since we don't track this in SecureSearchForm
@@ -30,6 +32,8 @@ const Dashboard = () => {
       searchTime,
       creditsUsed: Math.ceil(results.length / 10) // Estimate
     });
+    
+    console.log('Search results state updated');
   };
 
   const handleQuickSearch = (location: string, businessType: string) => {
@@ -37,6 +41,23 @@ const Dashboard = () => {
     if (searchFormRef.current) {
       searchFormRef.current.triggerSearch(location, businessType);
     }
+  };
+
+  // Test function to see if display works
+  const testDisplayResults = () => {
+    console.log('Testing display with dummy data');
+    const dummyResults: BusinessLead[] = [
+      {
+        name: "Test Restaurant",
+        address: "123 Test St, Dublin",
+        phone: "+353 1 234 5678",
+        website: "https://testrestaurant.ie",
+        email: "info@testrestaurant.ie",
+        rating: 4.5,
+        google_place_id: "test123"
+      }
+    ];
+    handleSearchResults(dummyResults);
   };
 
   if (isLoading) {
@@ -65,6 +86,14 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <QuickActions onQuickSearch={handleQuickSearch} />
+
+      {/* Test button - remove this after debugging */}
+      <button 
+        onClick={testDisplayResults}
+        className="bg-red-500 text-white px-4 py-2 rounded"
+      >
+        TEST: Show Dummy Results
+      </button>
 
       <SecureSearchForm 
         ref={searchFormRef}
@@ -95,8 +124,12 @@ const Dashboard = () => {
         </div>
       )}
 
-      {searchResults.length > 0 && (
+      {searchResults.length > 0 ? (
         <ResultsTable leads={searchResults} />
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No search results yet. Try searching above!</p>
+        </div>
       )}
     </div>
   );
