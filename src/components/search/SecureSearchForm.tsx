@@ -56,7 +56,11 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     console.log('User:', !!user, user?.id);
 
     // Validate inputs
+    console.log('Validating inputs:', { finalLocation, finalBusinessType });
+    console.log('Location validation:', validateInput(finalLocation), 'Business validation:', validateInput(finalBusinessType));
+    
     if (!validateInput(finalLocation) || !validateInput(finalBusinessType)) {
+      console.log('VALIDATION FAILED - Invalid characters');
       toast({
         title: "Invalid Input",
         description: "Please use only letters, numbers, spaces, commas, periods, and hyphens",
@@ -66,6 +70,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     }
 
     if (!finalLocation.trim() || !finalBusinessType.trim()) {
+      console.log('VALIDATION FAILED - Missing information');
       toast({
         title: "Missing Information",
         description: "Please enter both location and business type",
@@ -73,6 +78,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       });
       return;
     }
+
+    console.log('Validation passed, proceeding with search...');
 
     setIsSearching(true);
     setShowProgressModal(true);
