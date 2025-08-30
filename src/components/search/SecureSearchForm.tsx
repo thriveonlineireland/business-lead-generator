@@ -50,6 +50,11 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     const finalLocation = searchLocation || location;
     const finalBusinessType = searchBusinessType || businessType;
 
+    console.log('=== SEARCH DEBUG START ===');
+    console.log('performSearch called with:', { searchLocation, searchBusinessType });
+    console.log('Final values:', { finalLocation, finalBusinessType });
+    console.log('User:', !!user, user?.id);
+
     // Validate inputs
     if (!validateInput(finalLocation) || !validateInput(finalBusinessType)) {
       toast({
@@ -73,6 +78,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     setShowProgressModal(true);
     
     try {
+      console.log('About to call supabase.functions.invoke');
+      console.log('Supabase client available:', !!supabase);
       console.log('Starting secure search for:', { location: finalLocation, businessType: finalBusinessType });
       console.log('User authenticated:', !!user, 'User ID:', user?.id);
       
@@ -87,6 +94,13 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         locationTerms,
         keywordCount: businessKeywords.length,
         locationTermCount: locationTerms.length
+      });
+      
+      console.log('Calling edge function with params:', {
+        location: finalLocation.trim(),
+        businessType: finalBusinessType.trim(),
+        businessKeywords,
+        locationTerms
       });
       
       const { data, error } = await supabase.functions.invoke('search-business-leads', {
