@@ -110,17 +110,28 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         locationTerms
       });
       
-      const { data, error } = await supabase.functions.invoke('search-business-leads', {
-        body: {
-          location: finalLocation.trim(),
-          businessType: finalBusinessType.trim(),
-          businessKeywords,
-          locationTerms
-        },
-        headers: user ? undefined : {
-          'Authorization': 'Bearer guest'
-        }
-      });
+      let data, error;
+      try {
+        console.log('Invoking supabase function...');
+        const result = await supabase.functions.invoke('search-business-leads', {
+          body: {
+            location: finalLocation.trim(),
+            businessType: finalBusinessType.trim(),
+            businessKeywords,
+            locationTerms
+          },
+          headers: user ? undefined : {
+            'Authorization': 'Bearer guest'
+          }
+        });
+        
+        data = result.data;
+        error = result.error;
+        console.log('Function invocation completed');
+      } catch (invokeError) {
+        console.error('Function invocation failed:', invokeError);
+        throw new Error(`Function invocation failed: ${invokeError.message}`);
+      }
       
       console.log('Supabase function response:', { data, error });
       console.log('Raw response data:', JSON.stringify(data, null, 2));
@@ -161,12 +172,14 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       }
     } catch (error) {
       console.error('Search failed:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
       toast({
         title: "Search Failed",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
+      console.log('Search process complete, stopping loading states');
       setIsSearching(false);
       setShowProgressModal(false);
     }
