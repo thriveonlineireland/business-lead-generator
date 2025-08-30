@@ -50,17 +50,11 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     const finalLocation = searchLocation || location;
     const finalBusinessType = searchBusinessType || businessType;
 
-    console.log('=== SEARCH DEBUG START ===');
-    console.log('performSearch called with:', { searchLocation, searchBusinessType });
-    console.log('Final values:', { finalLocation, finalBusinessType });
-    console.log('User:', !!user, user?.id);
+    console.log('🔍 Starting search:', { finalLocation, finalBusinessType });
 
     // Validate inputs
-    console.log('Validating inputs:', { finalLocation, finalBusinessType });
-    console.log('Location validation:', validateInput(finalLocation), 'Business validation:', validateInput(finalBusinessType));
-    
     if (!validateInput(finalLocation) || !validateInput(finalBusinessType)) {
-      console.log('VALIDATION FAILED - Invalid characters');
+      console.error('❌ Validation failed - Invalid characters');
       toast({
         title: "Invalid Input",
         description: "Please use only letters, numbers, spaces, commas, periods, and hyphens",
@@ -70,7 +64,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
     }
 
     if (!finalLocation.trim() || !finalBusinessType.trim()) {
-      console.log('VALIDATION FAILED - Missing information');
+      console.error('❌ Validation failed - Missing information');
       toast({
         title: "Missing Information",
         description: "Please enter both location and business type",
@@ -79,107 +73,90 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       return;
     }
 
-    console.log('Validation passed, proceeding with search...');
+    console.log('✅ Validation passed, starting search...');
 
     setIsSearching(true);
     setShowProgressModal(true);
     
     try {
-      console.log('About to call supabase.functions.invoke');
-      console.log('Supabase client available:', !!supabase);
-      console.log('Starting secure search for:', { location: finalLocation, businessType: finalBusinessType });
-      console.log('User authenticated:', !!user, 'User ID:', user?.id);
-      
       // Get optimized search terms
       const businessKeywords = getBusinessTypeKeywords(finalBusinessType);
       const locationTerms = getLocationSearchTerms(finalLocation);
       
-      console.log('Search parameters:', {
-        location: finalLocation.trim(),
-        businessType: finalBusinessType.trim(),
-        businessKeywords,
-        locationTerms,
-        keywordCount: businessKeywords.length,
-        locationTermCount: locationTerms.length
-      });
-      
-      console.log('Calling edge function with params:', {
+      const searchParams = {
         location: finalLocation.trim(),
         businessType: finalBusinessType.trim(),
         businessKeywords,
         locationTerms
+      };
+      
+      console.log('📡 Calling edge function with params:', searchParams);
+      
+      const result = await supabase.functions.invoke('search-business-leads', {
+        body: searchParams,
+        headers: user ? undefined : {
+          'Authorization': 'Bearer guest'
+        }
       });
       
-      let data, error;
-      try {
-        console.log('Invoking supabase function...');
-        const result = await supabase.functions.invoke('search-business-leads', {
-          body: {
-            location: finalLocation.trim(),
-            businessType: finalBusinessType.trim(),
-            businessKeywords,
-            locationTerms
-          },
-          headers: user ? undefined : {
-            'Authorization': 'Bearer guest'
-          }
-        });
-        
-        data = result.data;
-        error = result.error;
-        console.log('Function invocation completed');
-      } catch (invokeError) {
-        console.error('Function invocation failed:', invokeError);
-        throw new Error(`Function invocation failed: ${invokeError.message}`);
-      }
-      
-      console.log('Supabase function response:', { data, error });
-      console.log('Raw response data:', JSON.stringify(data, null, 2));
+      const { data, error } = result;
+      console.log('📨 Function response:', { 
+        success: data?.success, 
+        dataLength: data?.data?.length, 
+        error: error?.message || error 
+      });
 
       if (error) {
-        console.error('Search error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ Search error:', error);
         toast({
           title: "Search Failed", 
-          description: `Error: ${error.message || JSON.stringify(error)}`,
+          description: error.message || "Unknown error occurred",
           variant: "destructive",
         });
-        throw error;
+        return;
       }
 
       if (data?.success) {
-        console.log('Search completed successfully:', data.data?.length, 'leads found');
-        onResults(data.data || []);
+        const foundLeads = data.data || [];
+        console.log('✅ Search completed successfully:', foundLeads.length, 'leads found');
+        console.log('📊 Sample lead:', foundLeads[0]);
+        
+        // Call onResults to update the parent component
+        onResults(foundLeads);
         
         // Save to search history only for authenticated users
         if (user) {
+          console.log('💾 Saving search history for authenticated user');
           await supabase.from('search_history').insert({
             user_id: user.id,
             query: `${finalBusinessType} in ${finalLocation}`,
             location: finalLocation,
             business_type: finalBusinessType,
-            results_count: data.data?.length || 0
+            results_count: foundLeads.length
           });
         }
 
         toast({
           title: "Search Complete",
-          description: `Found ${data.data?.length || 0} business leads`,
+          description: `Found ${foundLeads.length} business leads`,
         });
       } else {
-        console.error('Search failed - data:', data);
-        throw new Error(data?.error || 'Search failed - no data returned');
+        console.error('❌ Search failed:', data?.error || 'No data returned');
+        toast({
+          title: "Search Failed",
+          description: data?.error || 'No results found',
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Search failed:', error);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('❌ Search failed with exception:', error);
       toast({
         title: "Search Failed",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
-      console.log('Search process complete, stopping loading states');
+      console.log('🏁 Search process complete');
       setIsSearching(false);
       setShowProgressModal(false);
     }

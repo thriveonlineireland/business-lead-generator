@@ -22,8 +22,10 @@ const Dashboard = () => {
   // Remove auth requirement - allow both authenticated and guest users
 
   const handleSearchResults = (results: BusinessLead[]) => {
-    console.log('handleSearchResults called with:', results?.length, 'results');
-    console.log('Sample result:', results?.[0]);
+    console.log('📈 Dashboard received results:', results?.length, 'leads');
+    if (results?.length > 0) {
+      console.log('📋 Sample result:', results[0]);
+    }
     setSearchResults(results);
     
     const searchTime = 1.5; // Estimate since we don't track this in SecureSearchForm
@@ -33,7 +35,7 @@ const Dashboard = () => {
       creditsUsed: Math.ceil(results.length / 10) // Estimate
     });
     
-    console.log('Search results state updated');
+    console.log('✅ Dashboard state updated with', results.length, 'results');
   };
 
   const handleQuickSearch = (location: string, businessType: string) => {
@@ -41,23 +43,6 @@ const Dashboard = () => {
     if (searchFormRef.current) {
       searchFormRef.current.triggerSearch(location, businessType);
     }
-  };
-
-  // Test function to see if display works
-  const testDisplayResults = () => {
-    console.log('Testing display with dummy data');
-    const dummyResults: BusinessLead[] = [
-      {
-        name: "Test Restaurant",
-        address: "123 Test St, Dublin",
-        phone: "+353 1 234 5678",
-        website: "https://testrestaurant.ie",
-        email: "info@testrestaurant.ie",
-        rating: 4.5,
-        google_place_id: "test123"
-      }
-    ];
-    handleSearchResults(dummyResults);
   };
 
   if (isLoading) {
@@ -86,14 +71,6 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <QuickActions onQuickSearch={handleQuickSearch} />
-
-      {/* Test button - remove this after debugging */}
-      <button 
-        onClick={testDisplayResults}
-        className="bg-red-500 text-white px-4 py-2 rounded"
-      >
-        TEST: Show Dummy Results
-      </button>
 
       <SecureSearchForm 
         ref={searchFormRef}
@@ -127,9 +104,21 @@ const Dashboard = () => {
       {searchResults.length > 0 ? (
         <ResultsTable leads={searchResults} />
       ) : (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">No search results yet. Try searching above!</p>
-        </div>
+        <Card className="border-0 shadow-soft">
+          <CardContent className="p-12 text-center">
+            <div className="space-y-4">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                <Search className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
+                <p className="text-muted-foreground">
+                  Use the search form above or try one of the quick actions to get started.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -30,7 +30,7 @@ interface PlaceResult {
 }
 
 serve(async (req) => {
-  console.log('Edge function called with method:', req.method);
+  console.log('🚀 Edge function called with method:', req.method);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -38,11 +38,20 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Parsing request body...');
+    console.log('📝 Parsing request body...');
     const { location, businessType, maxResults = 500, businessKeywords = [], locationTerms = [] } = await req.json();
+    
+    console.log('📍 Search parameters:', {
+      location,
+      businessType,
+      maxResults,
+      keywordCount: businessKeywords.length,
+      locationTermCount: locationTerms.length
+    });
     
     // Input validation
     if (!location || !businessType) {
+      console.error('❌ Missing required parameters');
       return new Response(
         JSON.stringify({ success: false, error: 'Location and business type are required' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -52,6 +61,7 @@ serve(async (req) => {
     // Validate input format (basic security check)
     const allowedPattern = /^[a-zA-Z0-9\s,.-]+$/;
     if (!allowedPattern.test(location) || !allowedPattern.test(businessType)) {
+      console.error('❌ Invalid characters in input');
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid characters in input' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -59,13 +69,14 @@ serve(async (req) => {
     }
 
     if (location.length > 100 || businessType.length > 100) {
+      console.error('❌ Input too long');
       return new Response(
         JSON.stringify({ success: false, error: 'Input too long' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log(`Starting business search for: ${businessType} in ${location}, max results: ${maxResults}`);
+    console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: ${maxResults} results`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -81,24 +92,24 @@ serve(async (req) => {
         const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
         if (!userError && authUser) {
           user = authUser;
-          console.log('Authenticated user:', user.email);
+          console.log('👤 Authenticated user:', user.email);
         } else {
-          console.log('Invalid auth token, continuing as guest user');
+          console.log('🔓 Invalid auth token, continuing as guest user');
         }
       } catch (error) {
-        console.log('Authentication optional - continuing as guest user');
+        console.log('🔓 Authentication optional - continuing as guest user');
       }
     } else {
-      console.log('No auth header or guest token - continuing as guest user');
+      console.log('🔓 No auth header or guest token - continuing as guest user');
     }
     
-    console.log('Search mode:', user ? 'authenticated' : 'guest');
+    console.log('🎯 Search mode:', user ? 'authenticated' : 'guest');
 
     // Use centralized Google Places API key
     const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
     
     if (!googleApiKey) {
-      console.error('Google Places API key not configured in environment');
+      console.error('❌ Google Places API key not configured in environment');
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -107,6 +118,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('🔑 Google Places API key found');
     const userId = user?.id;
 
     const leads: BusinessLead[] = [];
@@ -120,7 +133,7 @@ serve(async (req) => {
         businessKeywords.length > 0 ? businessKeywords : [businessType],
         locationTerms.length > 0 ? locationTerms : [location]
       );
-      console.log(`Using ${searchVariations.length} optimized search variations to find ${maxResults} leads`);
+      console.log(`🎲 Using ${searchVariations.length} optimized search variations to find ${maxResults} leads`);
       
       const allPlaces: PlaceResult[] = [];
       
@@ -129,7 +142,7 @@ serve(async (req) => {
       
       for (let i = 0; i < maxVariations && allPlaces.length < maxResults; i++) {
         const searchQuery = searchVariations[i];
-        console.log(`Search ${i + 1}/${maxVariations}: "${searchQuery}"`);
+        console.log(`🔍 Search ${i + 1}/${maxVariations}: "${searchQuery}"`);
         
         try {
           // Initial search
@@ -146,10 +159,10 @@ serve(async (req) => {
             const response = await fetch(url);
             const data = await response.json();
 
-            console.log(`API response status: ${data.status}, page ${pageCount + 1}`);
+            console.log(`📡 API response status: ${data.status}, page ${pageCount + 1}, results: ${data.results?.length || 0}`);
 
             if (data.status === 'OK' && data.results && data.results.length > 0) {
-              console.log(`Found ${data.results.length} places on page ${pageCount + 1}`);
+              console.log(`✅ Found ${data.results.length} places on page ${pageCount + 1}`);
               
               // Filter out duplicates and add to allPlaces
               const newPlaces = data.results.filter((place: PlaceResult) => 
@@ -161,7 +174,7 @@ serve(async (req) => {
                 allPlaces.push(place);
               });
               
-              console.log(`Total unique places so far: ${allPlaces.length}`);
+              console.log(`📊 Total unique places so far: ${allPlaces.length}`);
               
               // Check for next page
               nextPageToken = data.next_page_token;
@@ -175,16 +188,16 @@ serve(async (req) => {
                 await new Promise(resolve => setTimeout(resolve, 2000));
               }
             } else if (data.status === 'ZERO_RESULTS') {
-              console.log(`No results for query: ${searchQuery}`);
+              console.log(`⚪ No results for query: ${searchQuery}`);
               break;
             } else {
-              console.error(`API error for query "${searchQuery}":`, data.status, data.error_message);
+              console.error(`❌ API error for query "${searchQuery}":`, data.status, data.error_message);
               break;
             }
           } while (nextPageToken && pageCount < maxPagesPerQuery && allPlaces.length < maxResults);
           
         } catch (searchError) {
-          console.error(`Search ${i + 1} failed:`, searchError);
+          console.error(`❌ Search ${i + 1} failed:`, searchError);
           continue; // Continue with next search
         }
         
@@ -194,21 +207,21 @@ serve(async (req) => {
         }
       }
 
-      console.log(`Search phase completed. Found ${allPlaces.length} unique places`);
+      console.log(`🎯 Search phase completed. Found ${allPlaces.length} unique places`);
 
       // Get detailed information for all places (phone, website, email)
       if (allPlaces.length > 0) {
-        console.log(`Getting detailed information for ${allPlaces.length} places...`);
+        console.log(`📞 Getting detailed information for ${allPlaces.length} places...`);
         const detailedLeads = await getDetailedPlaceInfo(allPlaces, googleApiKey);
         leads.push(...detailedLeads);
-        console.log(`Processed ${detailedLeads.length} leads with detailed information`);
+        console.log(`✅ Processed ${detailedLeads.length} leads with detailed information`);
       }
 
-      console.log(`Search completed. Total leads found: ${leads.length}`);
+      console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
       // Save leads to database only for authenticated users
       if (leads.length > 0 && user && userId) {
-        console.log(`Saving ${leads.length} leads to database for user ${userId}`);
+        console.log(`💾 Saving ${leads.length} leads to database for user ${userId}`);
         
         const leadsData = leads.map(lead => ({
           user_id: userId,
@@ -230,12 +243,13 @@ serve(async (req) => {
         if (error) {
           console.error('Error saving leads to database:', error);
         } else {
-          console.log('Successfully saved leads to database');
+          console.log('✅ Successfully saved leads to database');
         }
       } else if (leads.length > 0) {
-        console.log('Guest search - results not saved to database');
+        console.log('🔓 Guest search - results not saved to database');
       }
 
+      console.log('📤 Returning response with', leads.length, 'leads');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -247,9 +261,7 @@ serve(async (req) => {
       );
 
     } catch (error) {
-      console.error('Error during business search:', error);
-      console.error('Error stack:', error.stack);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ Error during business search:', error);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -261,7 +273,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in search-business-leads function:', error);
+    console.error('❌ Error in search-business-leads function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -272,10 +284,13 @@ serve(async (req) => {
 async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Promise<BusinessLead[]> {
   const leads: BusinessLead[] = [];
   
+  console.log(`📋 Processing ${places.length} places for detailed info...`);
+  
   // Process places in batches to avoid rate limits
   const batchSize = 10;
   for (let i = 0; i < places.length; i += batchSize) {
     const batch = places.slice(i, i + batchSize);
+    console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}, ${batch.length} places`);
     
     const batchPromises = batch.map(async (place) => {
       try {
@@ -288,7 +303,7 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
         if (data.status === 'OK' && data.result) {
           const result = data.result;
           
-          // Try to extract email from website if available (with timeout)
+          // Try to extract email from website if available
           let email: string | undefined;
           if (result.website) {
             email = await extractEmailFromWebsite(result.website);
@@ -308,7 +323,7 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
           return lead;
         }
       } catch (error) {
-        console.error(`Error fetching details for place ${place.place_id}:`, error);
+        console.error(`❌ Error fetching details for place ${place.place_id}:`, error);
       }
       
       return null;
@@ -318,12 +333,15 @@ async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Prom
     const validLeads = batchResults.filter((lead): lead is BusinessLead => lead !== null);
     leads.push(...validLeads);
     
+    console.log(`✅ Batch ${Math.floor(i/batchSize) + 1} complete: ${validLeads.length} valid leads`);
+    
     // Small delay between batches to respect rate limits
     if (i + batchSize < places.length) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
   
+  console.log(`📊 Total detailed leads processed: ${leads.length}`);
   return leads;
 }
 
@@ -335,7 +353,7 @@ function createOptimizedSearchVariations(
 ): string[] {
   const variations: string[] = [];
   
-  console.log(`Creating optimized searches with ${businessKeywords.length} business keywords and ${locationTerms.length} location terms`);
+  console.log(`🎲 Creating optimized searches with ${businessKeywords.length} business keywords and ${locationTerms.length} location terms`);
   
   // Create comprehensive combinations of business keywords and location terms
   for (const locationTerm of locationTerms) {
@@ -360,7 +378,7 @@ function createOptimizedSearchVariations(
   
   // Remove duplicates and limit to prevent timeout
   const uniqueVariations = [...new Set(variations)];
-  console.log(`Generated ${uniqueVariations.length} unique search variations`);
+  console.log(`✅ Generated ${uniqueVariations.length} unique search variations`);
   
   // Return up to 20 variations for optimal coverage without timeout
   return uniqueVariations.slice(0, 20);
@@ -438,14 +456,14 @@ function createSearchVariations(location: string, businessType: string): string[
 
 async function extractEmailFromWebsite(website: string): Promise<string | undefined> {
   try {
-    console.log(`Extracting email from: ${website}`);
+    console.log(`📧 Extracting email from: ${website}`);
     
     // Security: Domain whitelist for email extraction
     const allowedDomains = ['.com', '.ie', '.co.uk', '.org', '.net', '.eu'];
     const isAllowedDomain = allowedDomains.some(domain => website.includes(domain));
     
     if (!isAllowedDomain) {
-      console.log(`Domain not allowed for email extraction: ${website}`);
+      console.log(`🚫 Domain not allowed for email extraction: ${website}`);
       return undefined;
     }
     
@@ -471,7 +489,7 @@ async function extractEmailFromWebsite(website: string): Promise<string | undefi
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      console.log(`Failed to fetch ${website}: ${response.status}`);
+      console.log(`❌ Failed to fetch ${website}: ${response.status}`);
       return undefined;
     }
     
@@ -484,7 +502,7 @@ async function extractEmailFromWebsite(website: string): Promise<string | undefi
         const email = match[1].toLowerCase();
         // Basic email validation
         if (email.includes('@') && email.includes('.')) {
-          console.log(`Found email: ${email}`);
+          console.log(`✅ Found email: ${email}`);
           return email;
         }
       }
@@ -492,7 +510,7 @@ async function extractEmailFromWebsite(website: string): Promise<string | undefi
     
     return undefined;
   } catch (error: any) {
-    console.log(`Could not extract email from ${website}: ${error.message}`);
+    console.log(`⚠️ Could not extract email from ${website}: ${error.message}`);
     return undefined;
   }
 }
