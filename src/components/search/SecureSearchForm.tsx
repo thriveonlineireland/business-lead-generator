@@ -102,6 +102,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       });
       
       console.log('Supabase function response:', { data, error });
+      console.log('Raw response data:', JSON.stringify(data, null, 2));
 
       if (error) {
         console.error('Search error:', error);
