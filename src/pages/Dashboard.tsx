@@ -6,6 +6,7 @@ import ResultsTable from "@/components/search/ResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Search } from "lucide-react";
 import QuickActions from "@/components/search/QuickActions";
 
 const Dashboard = () => {
