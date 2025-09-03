@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
@@ -14,23 +13,28 @@ interface BusinessLead {
   website?: string;
   email?: string;
   rating?: number;
-  google_place_id?: string;
+  category?: string;
+  latitude?: number;
+  longitude?: number;
   source?: string;
 }
 
-interface PlaceResult {
-  place_id: string;
-  name: string;
-  formatted_address?: string;
-  formatted_phone_number?: string;
-  website?: string;
-  rating?: number;
-  types: string[];
-  business_status?: string;
-}
+// Business type mappings for OpenStreetMap
+const OSM_BUSINESS_TYPES: Record<string, string[]> = {
+  'restaurant': ['restaurant', 'fast_food', 'cafe', 'bistro', 'food_court'],
+  'bar-pub': ['bar', 'pub', 'biergarten', 'nightclub', 'brewery'],
+  'coffee-shop': ['cafe', 'coffee_shop'],
+  'retail': ['shop', 'mall', 'department_store', 'supermarket', 'clothes'],
+  'fitness': ['fitness_centre', 'gym', 'yoga', 'sports_centre'],
+  'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
+  'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
+  'automotive': ['car_repair', 'car_wash', 'fuel', 'car_dealer'],
+  'professional': ['office', 'lawyer', 'accountant', 'insurance'],
+  'education': ['school', 'kindergarten', 'university', 'college']
+};
 
 serve(async (req) => {
-  console.log('🚀 Edge function called with method:', req.method);
+  console.log(`🚀 Edge function called with method: ${req.method}`);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -39,478 +43,355 @@ serve(async (req) => {
 
   try {
     console.log('📝 Parsing request body...');
-    const { location, businessType, maxResults = 500, businessKeywords = [], locationTerms = [] } = await req.json();
+    const { location, businessType, businessKeywords, locationTerms } = await req.json();
     
     console.log('📍 Search parameters:', {
       location,
       businessType,
-      maxResults,
-      keywordCount: businessKeywords.length,
-      locationTermCount: locationTerms.length
+      maxResults: 100,
+      keywordCount: businessKeywords?.length || 0,
+      locationTermCount: locationTerms?.length || 0
     });
-    
-    // Input validation
-    if (!location || !businessType) {
-      console.error('❌ Missing required parameters');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Location and business type are required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate input format (basic security check)
-    const allowedPattern = /^[a-zA-Z0-9\s,.-]+$/;
-    if (!allowedPattern.test(location) || !allowedPattern.test(businessType)) {
-      console.error('❌ Invalid characters in input');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid characters in input' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (location.length > 100 || businessType.length > 100) {
-      console.error('❌ Input too long');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Input too long' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: ${maxResults} results`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from auth header - authentication is optional for guest searches
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization');
-    let user = null;
+    let userId = null;
     
     if (authHeader && authHeader !== 'Bearer guest') {
       try {
-        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-        if (!userError && authUser) {
-          user = authUser;
-          console.log('👤 Authenticated user:', user.email);
-        } else {
-          console.log('🔓 Invalid auth token, continuing as guest user');
+        const token = authHeader.replace('Bearer ', '');
+        const { data: userData, error: authError } = await supabase.auth.getUser(token);
+        if (!authError && userData.user) {
+          userId = userData.user.id;
+          console.log(`👤 Authenticated user: ${userData.user.email}`);
         }
       } catch (error) {
-        console.log('🔓 Authentication optional - continuing as guest user');
+        console.log('⚠️ Auth token invalid, proceeding as guest');
       }
-    } else {
-      console.log('🔓 No auth header or guest token - continuing as guest user');
     }
     
-    console.log('🎯 Search mode:', user ? 'authenticated' : 'guest');
+    console.log(`🎯 Search mode: ${userId ? 'authenticated' : 'guest'}`);
+    console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: 100 results`);
 
-    // Use centralized Google Places API key
-    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    // Use free OpenStreetMap API
+    const leads = await searchOpenStreetMap(location, businessType, 100);
     
-    if (!googleApiKey) {
-      console.error('❌ Google Places API key not configured in environment');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Service configuration error. Please contact support.' 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
+
+    // Save leads to database only for authenticated users
+    if (leads.length > 0 && userId) {
+      console.log(`💾 Saving ${leads.length} leads to database for user ${userId}`);
+      
+      const leadsData = leads.map(lead => ({
+        user_id: userId,
+        name: lead.name,
+        address: lead.address,
+        phone: lead.phone,
+        website: lead.website,
+        email: lead.email,
+        business_type: businessType,
+        location_searched: location,
+        rating: lead.rating,
+        google_place_id: null // OSM doesn't have Google place IDs
+      }));
+
+      const { error } = await supabase
+        .from('business_leads')
+        .insert(leadsData);
+
+      if (error) {
+        console.error('❌ Error saving leads to database:', error);
+      } else {
+        console.log('✅ Successfully saved leads to database');
+      }
+    } else if (leads.length > 0) {
+      console.log('🔓 Guest search - results not saved to database');
     }
-    
-    console.log('🔑 Google Places API key found');
-    const userId = user?.id;
 
-    const leads: BusinessLead[] = [];
-    const processedPlaceIds = new Set<string>(); // Prevent duplicates
-    
-    try {
-      // Use optimized search strategy with provided keywords and terms
-      const searchVariations = createOptimizedSearchVariations(
-        location, 
-        businessType, 
-        businessKeywords.length > 0 ? businessKeywords : [businessType],
-        locationTerms.length > 0 ? locationTerms : [location]
-      );
-      console.log(`🎲 Using ${searchVariations.length} optimized search variations to find ${maxResults} leads`);
-      
-      const allPlaces: PlaceResult[] = [];
-      
-      // Process search variations in batches to respect API limits
-      const maxVariations = Math.min(searchVariations.length, 15); // Limit variations to prevent timeout
-      
-      for (let i = 0; i < maxVariations && allPlaces.length < maxResults; i++) {
-        const searchQuery = searchVariations[i];
-        console.log(`🔍 Search ${i + 1}/${maxVariations}: "${searchQuery}"`);
-        
-        try {
-          // Initial search
-          let nextPageToken: string | undefined;
-          let pageCount = 0;
-          const maxPagesPerQuery = 3; // Each page gives up to 20 results
-          
-          do {
-            let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googleApiKey}`;
-            if (nextPageToken) {
-              url += `&pagetoken=${nextPageToken}`;
-            }
-            
-            const response = await fetch(url);
-            const data = await response.json();
+    console.log(`📤 Returning response with ${leads.length} leads`);
 
-            console.log(`📡 API response status: ${data.status}, page ${pageCount + 1}, results: ${data.results?.length || 0}`);
-
-            if (data.status === 'OK' && data.results && data.results.length > 0) {
-              console.log(`✅ Found ${data.results.length} places on page ${pageCount + 1}`);
-              
-              // Filter out duplicates and add to allPlaces
-              const newPlaces = data.results.filter((place: PlaceResult) => 
-                !processedPlaceIds.has(place.place_id)
-              );
-              
-              newPlaces.forEach((place: PlaceResult) => {
-                processedPlaceIds.add(place.place_id);
-                allPlaces.push(place);
-              });
-              
-              console.log(`📊 Total unique places so far: ${allPlaces.length}`);
-              
-              // Check for next page
-              nextPageToken = data.next_page_token;
-              pageCount++;
-              
-              // Stop if we have enough results
-              if (allPlaces.length >= maxResults) break;
-              
-              // Required delay between pagination requests
-              if (nextPageToken && pageCount < maxPagesPerQuery) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-              }
-            } else if (data.status === 'ZERO_RESULTS') {
-              console.log(`⚪ No results for query: ${searchQuery}`);
-              break;
-            } else {
-              console.error(`❌ API error for query "${searchQuery}":`, data.status, data.error_message);
-              break;
-            }
-          } while (nextPageToken && pageCount < maxPagesPerQuery && allPlaces.length < maxResults);
-          
-        } catch (searchError) {
-          console.error(`❌ Search ${i + 1} failed:`, searchError);
-          continue; // Continue with next search
-        }
-        
-        // Small delay between different search queries
-        if (i < maxVariations - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: leads,
+        totalFound: leads.length,
+        message: `Found ${leads.length} business leads using free data sources`
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
       }
-
-      console.log(`🎯 Search phase completed. Found ${allPlaces.length} unique places`);
-
-      // Get detailed information for all places (phone, website, email)
-      if (allPlaces.length > 0) {
-        console.log(`📞 Getting detailed information for ${allPlaces.length} places...`);
-        const detailedLeads = await getDetailedPlaceInfo(allPlaces, googleApiKey);
-        leads.push(...detailedLeads);
-        console.log(`✅ Processed ${detailedLeads.length} leads with detailed information`);
-      }
-
-      console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
-
-      // Save leads to database only for authenticated users
-      if (leads.length > 0 && user && userId) {
-        console.log(`💾 Saving ${leads.length} leads to database for user ${userId}`);
-        
-        const leadsData = leads.map(lead => ({
-          user_id: userId,
-          name: lead.name,
-          address: lead.address,
-          phone: lead.phone,
-          website: lead.website,
-          email: lead.email,
-          business_type: businessType,
-          location_searched: location,
-          rating: lead.rating,
-          google_place_id: lead.google_place_id
-        }));
-
-        const { error } = await supabase
-          .from('business_leads')
-          .insert(leadsData);
-
-        if (error) {
-          console.error('Error saving leads to database:', error);
-        } else {
-          console.log('✅ Successfully saved leads to database');
-        }
-      } else if (leads.length > 0) {
-        console.log('🔓 Guest search - results not saved to database');
-      }
-
-      console.log('📤 Returning response with', leads.length, 'leads');
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          data: leads,
-          totalFound: leads.length,
-          message: `Found ${leads.length} business leads`
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-
-    } catch (error) {
-      console.error('❌ Error during business search:', error);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Failed to search businesses',
-          details: error.message 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    );
 
   } catch (error) {
-    console.error('❌ Error in search-business-leads function:', error);
+    console.error('💥 Edge function error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        data: [],
+        totalFound: 0 
+      }),
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   }
 });
 
-async function getDetailedPlaceInfo(places: PlaceResult[], apiKey: string): Promise<BusinessLead[]> {
+async function searchOpenStreetMap(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  console.log(`🗺️ Searching OpenStreetMap for ${businessType} in ${location}`);
+  
   const leads: BusinessLead[] = [];
+  const osmTypes = OSM_BUSINESS_TYPES[businessType] || ['shop'];
   
-  console.log(`📋 Processing ${places.length} places for detailed info...`);
-  
-  // Process places in batches to avoid rate limits
-  const batchSize = 10;
-  for (let i = 0; i < places.length; i += batchSize) {
-    const batch = places.slice(i, i + batchSize);
-    console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}, ${batch.length} places`);
+  try {
+    // First, geocode the location using Nominatim (free)
+    const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1&addressdetails=1`;
+    console.log(`📍 Geocoding location: ${location}`);
     
-    const batchPromises = batch.map(async (place) => {
-      try {
-        // Get detailed place information
-        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status&key=${apiKey}`;
-        
-        const response = await fetch(detailsUrl);
-        const data = await response.json();
-        
-        if (data.status === 'OK' && data.result) {
-          const result = data.result;
-          
-          // Try to extract email from website if available
-          let email: string | undefined;
-          if (result.website) {
-            email = await extractEmailFromWebsite(result.website);
-          }
-          
-          const lead: BusinessLead = {
-            name: result.name || place.name,
-            address: result.formatted_address,
-            phone: result.formatted_phone_number,
-            website: result.website,
-            email: email,
-            rating: result.rating,
-            google_place_id: place.place_id,
-            source: 'Google Places'
-          };
-          
-          return lead;
-        }
-      } catch (error) {
-        console.error(`❌ Error fetching details for place ${place.place_id}:`, error);
+    const geocodeResponse = await fetch(geocodeUrl, {
+      headers: {
+        'User-Agent': 'BusinessLeadSearchApp/1.0 (contact@example.com)'
       }
-      
-      return null;
     });
     
-    const batchResults = await Promise.all(batchPromises);
-    const validLeads = batchResults.filter((lead): lead is BusinessLead => lead !== null);
-    leads.push(...validLeads);
-    
-    console.log(`✅ Batch ${Math.floor(i/batchSize) + 1} complete: ${validLeads.length} valid leads`);
-    
-    // Small delay between batches to respect rate limits
-    if (i + batchSize < places.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (!geocodeResponse.ok) {
+      console.error(`❌ Geocoding failed: ${geocodeResponse.status}`);
+      return [];
     }
+    
+    const geocodeData = await geocodeResponse.json();
+    if (!geocodeData || geocodeData.length === 0) {
+      console.error('❌ Location not found');
+      return [];
+    }
+    
+    const { lat, lon, boundingbox } = geocodeData[0];
+    console.log(`✅ Found coordinates: ${lat}, ${lon}`);
+    
+    // Create a reasonable search radius around the location
+    const latRange = 0.05; // approximately 5km
+    const lonRange = 0.05;
+    const minLat = parseFloat(lat) - latRange;
+    const maxLat = parseFloat(lat) + latRange;
+    const minLon = parseFloat(lon) - lonRange;
+    const maxLon = parseFloat(lon) + lonRange;
+    
+    // Search for businesses using Overpass API (completely free)
+    for (const osmType of osmTypes) {
+      if (leads.length >= maxResults) break;
+      
+      console.log(`🔍 Searching for ${osmType} businesses`);
+      
+      // Create Overpass query for both amenity and shop tags
+      const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+        );
+        out center meta;
+      `;
+      
+      const overpassUrl = 'https://overpass-api.de/api/interpreter';
+      
+      try {
+        const response = await fetch(overpassUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'BusinessLeadSearchApp/1.0'
+          },
+          body: `data=${encodeURIComponent(overpassQuery)}`
+        });
+        
+        if (!response.ok) {
+          console.error(`❌ Overpass API error: ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        console.log(`📊 Found ${data.elements?.length || 0} results for ${osmType}`);
+        
+        if (data.elements) {
+          for (const element of data.elements) {
+            if (leads.length >= maxResults) break;
+            
+            const tags = element.tags || {};
+            const name = tags.name || tags.brand || `${osmType} Business`;
+            
+            // Skip if we already have this business (check by name and location)
+            if (leads.some(lead => 
+              lead.name.toLowerCase() === name.toLowerCase() && 
+              Math.abs((lead.latitude || 0) - (element.lat || element.center?.lat || 0)) < 0.001
+            )) {
+              continue;
+            }
+            
+            const address = formatAddress(tags);
+            const lat = element.lat || element.center?.lat;
+            const lon = element.lon || element.center?.lon;
+            
+            const lead: BusinessLead = {
+              name,
+              address,
+              phone: tags.phone || tags['contact:phone'] || undefined,
+              website: tags.website || tags['contact:website'] || undefined,
+              category: tags.amenity || tags.shop || osmType,
+              latitude: lat,
+              longitude: lon,
+              source: 'OpenStreetMap (Free)'
+            };
+            
+            leads.push(lead);
+            console.log(`✅ Added: ${name} at ${address}`);
+          }
+        }
+        
+        // Be respectful to free APIs - add delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`❌ Error searching for ${osmType}:`, error);
+      }
+    }
+    
+    // If we didn't find many results, try a broader search with generic terms
+    if (leads.length < 20) {
+      console.log(`🔄 Trying broader search for more results`);
+      await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
+    }
+    
+  } catch (error) {
+    console.error('❌ OpenStreetMap search error:', error);
   }
   
-  console.log(`📊 Total detailed leads processed: ${leads.length}`);
+  console.log(`✅ OpenStreetMap search completed. Found ${leads.length} leads`);
   return leads;
 }
 
-function createOptimizedSearchVariations(
-  location: string, 
+async function searchBroaderCategories(
+  minLat: number, 
+  minLon: number, 
+  maxLat: number, 
+  maxLon: number, 
   businessType: string, 
-  businessKeywords: string[],
-  locationTerms: string[]
-): string[] {
-  const variations: string[] = [];
+  existingLeads: BusinessLead[], 
+  maxResults: number
+): Promise<void> {
+  // Broader search categories
+  const broadCategories = [
+    'amenity', 'shop', 'office', 'leisure', 'tourism'
+  ];
   
-  console.log(`🎲 Creating optimized searches with ${businessKeywords.length} business keywords and ${locationTerms.length} location terms`);
-  
-  // Create comprehensive combinations of business keywords and location terms
-  for (const locationTerm of locationTerms) {
-    for (const businessKeyword of businessKeywords) {
-      // Primary variations
-      variations.push(`${businessKeyword} in ${locationTerm}`);
-      variations.push(`${businessKeyword} ${locationTerm}`);
-      variations.push(`${businessKeyword} near ${locationTerm}`);
+  for (const category of broadCategories) {
+    if (existingLeads.length >= maxResults) break;
+    
+    const overpassQuery = `
+      [out:json][timeout:20];
+      (
+        nwr["${category}"](${minLat},${minLon},${maxLat},${maxLon});
+      );
+      out center meta;
+    `;
+    
+    try {
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'BusinessLeadSearchApp/1.0'
+        },
+        body: `data=${encodeURIComponent(overpassQuery)}`
+      });
       
-      // Add "best" prefix for quality results
-      variations.push(`best ${businessKeyword} in ${locationTerm}`);
+      if (!response.ok) continue;
       
-      // Add plural variations
-      const pluralBusiness = businessKeyword.endsWith('s') ? businessKeyword : `${businessKeyword}s`;
-      variations.push(`${pluralBusiness} in ${locationTerm}`);
-    }
-  }
-  
-  // Add original fallback variations
-  variations.push(`${businessType} in ${location}`);
-  variations.push(`${businessType} ${location}`);
-  
-  // Remove duplicates and limit to prevent timeout
-  const uniqueVariations = [...new Set(variations)];
-  console.log(`✅ Generated ${uniqueVariations.length} unique search variations`);
-  
-  // Return up to 20 variations for optimal coverage without timeout
-  return uniqueVariations.slice(0, 20);
-}
-
-function createSearchVariations(location: string, businessType: string): string[] {
-  const variations: string[] = [];
-  
-  // Determine if this is Dublin and create comprehensive search strategy
-  if (location.toLowerCase().includes('dublin')) {
-    const dublinAreas = [
-      'Dublin City Centre',
-      'Dublin 1', 'Dublin 2', 'Dublin 3', 'Dublin 4', 'Dublin 5', 'Dublin 6', 'Dublin 7', 'Dublin 8',
-      'Dublin 9', 'Dublin 10', 'Dublin 11', 'Dublin 12', 'Dublin 13', 'Dublin 14', 'Dublin 15',
-      'Dublin 16', 'Dublin 17', 'Dublin 18', 'Dublin 20', 'Dublin 22', 'Dublin 24',
-      'Ballymun Dublin', 'Blackrock Dublin', 'Blanchardstown Dublin', 'Booterstown Dublin',
-      'Clontarf Dublin', 'Dun Laoghaire Dublin', 'Finglas Dublin', 'Glasnevin Dublin',
-      'Howth Dublin', 'Kilmainham Dublin', 'Lucan Dublin', 'Malahide Dublin',
-      'Rathmines Dublin', 'Rathgar Dublin', 'Sandyford Dublin', 'Swords Dublin',
-      'Tallaght Dublin', 'Temple Bar Dublin', 'Ballsbridge Dublin', 'Donnybrook Dublin',
-      'Terenure Dublin', 'Dundrum Dublin', 'Stillorgan Dublin', 'Dalkey Dublin',
-      'Wicklow near Dublin', 'Kildare near Dublin', 'Meath near Dublin'
-    ];
-    
-    // Add main city searches with priority on Greater Dublin Area coverage
-    variations.push(`${businessType} in Dublin Ireland`);
-    variations.push(`${businessType} Dublin`);
-    variations.push(`${businessType} Greater Dublin Area`);
-    variations.push(`${businessType} Dublin Metro Area`);
-    variations.push(`${businessType} in County Dublin Ireland`);
-    variations.push(`${businessType} near Dublin Ireland`);
-    
-    // Add specific area searches - prioritize most populated areas first, then add more comprehensive coverage
-    const priorityAreas = [
-      'Dublin City Centre', 'Dublin 1', 'Dublin 2', 'Dublin 4', 'Dublin 6', 
-      'Tallaght Dublin', 'Blanchardstown Dublin', 'Swords Dublin'
-    ];
-    
-    // Add more comprehensive area coverage for better results
-    const additionalAreas = [
-      'Dublin 3', 'Dublin 5', 'Dublin 7', 'Dublin 8', 'Dublin 9', 'Dublin 10',
-      'Dublin 11', 'Dublin 12', 'Dublin 13', 'Dublin 14', 'Dublin 15', 'Dublin 16',
-      'Dublin 17', 'Dublin 18', 'Dublin 20', 'Dublin 22', 'Dublin 24',
-      'Rathmines Dublin', 'Rathgar Dublin', 'Sandyford Dublin', 'Dundrum Dublin',
-      'Blackrock Dublin', 'Dun Laoghaire Dublin', 'Clontarf Dublin', 'Howth Dublin',
-      'Malahide Dublin', 'Ballsbridge Dublin', 'Donnybrook Dublin', 'Terenure Dublin'
-    ];
-    
-    // Add all priority areas
-    priorityAreas.forEach(area => {
-      variations.push(`${businessType} in ${area}`);
-    });
-    
-    // Add additional areas for comprehensive coverage
-    additionalAreas.forEach(area => {
-      variations.push(`${businessType} in ${area}`);
-    });
-    
-  } else {
-    // For other locations, create general variations
-    variations.push(`${businessType} in ${location}`);
-    variations.push(`${businessType} near ${location}`);
-    variations.push(`${businessType} ${location}`);
-    
-    // Try to extract city/state for broader searches
-    const locationParts = location.split(',').map(part => part.trim());
-    if (locationParts.length > 1) {
-      variations.push(`${businessType} in ${locationParts[0]}`);
-      variations.push(`${businessType} ${locationParts[0]}`);
-    }
-  }
-  
-  return variations;
-}
-
-async function extractEmailFromWebsite(website: string): Promise<string | undefined> {
-  try {
-    console.log(`📧 Extracting email from: ${website}`);
-    
-    // Security: Domain whitelist for email extraction
-    const allowedDomains = ['.com', '.ie', '.co.uk', '.org', '.net', '.eu'];
-    const isAllowedDomain = allowedDomains.some(domain => website.includes(domain));
-    
-    if (!isAllowedDomain) {
-      console.log(`🚫 Domain not allowed for email extraction: ${website}`);
-      return undefined;
-    }
-    
-    // Basic URL validation
-    if (!website.startsWith('http://') && !website.startsWith('https://')) {
-      website = 'https://' + website;
-    }
-    
-    const emailPatterns = [
-      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
-    ];
-    
-    // Try to fetch the website with shorter timeout for efficiency
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
-    const response = await fetch(website, { 
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BusinessLeadBot/1.0)',
-      }
-    });
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.log(`❌ Failed to fetch ${website}: ${response.status}`);
-      return undefined;
-    }
-    
-    const html = await response.text();
-    
-    // Try each email pattern
-    for (const pattern of emailPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const email = match[1].toLowerCase();
-        // Basic email validation
-        if (email.includes('@') && email.includes('.')) {
-          console.log(`✅ Found email: ${email}`);
-          return email;
+      const data = await response.json();
+      
+      if (data.elements) {
+        for (const element of data.elements) {
+          if (existingLeads.length >= maxResults) break;
+          
+          const tags = element.tags || {};
+          const name = tags.name || tags.brand;
+          
+          if (!name) continue; // Skip unnamed places
+          
+          // Check if this business might be relevant to the search
+          const categoryValue = tags[category];
+          if (isRelevantBusiness(businessType, categoryValue, name)) {
+            // Skip if already exists
+            if (existingLeads.some(lead => 
+              lead.name.toLowerCase() === name.toLowerCase()
+            )) {
+              continue;
+            }
+            
+            const address = formatAddress(tags);
+            const lat = element.lat || element.center?.lat;
+            const lon = element.lon || element.center?.lon;
+            
+            const lead: BusinessLead = {
+              name,
+              address,
+              phone: tags.phone || tags['contact:phone'] || undefined,
+              website: tags.website || tags['contact:website'] || undefined,
+              category: categoryValue || category,
+              latitude: lat,
+              longitude: lon,
+              source: 'OpenStreetMap (Free)'
+            };
+            
+            existingLeads.push(lead);
+            console.log(`✅ Added (broader): ${name}`);
+          }
         }
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error) {
+      console.error(`❌ Error in broader search for ${category}:`, error);
     }
-    
-    return undefined;
-  } catch (error: any) {
-    console.log(`⚠️ Could not extract email from ${website}: ${error.message}`);
-    return undefined;
   }
+}
+
+function isRelevantBusiness(businessType: string, categoryValue: string, name: string): boolean {
+  if (!categoryValue && !name) return false;
+  
+  const searchTerms = businessType.toLowerCase().split(/[-\s]/);
+  const checkText = `${categoryValue || ''} ${name}`.toLowerCase();
+  
+  // Check if any of the business type terms match
+  return searchTerms.some(term => checkText.includes(term));
+}
+
+function formatAddress(tags: any): string {
+  const parts = [];
+  
+  if (tags['addr:housenumber']) parts.push(tags['addr:housenumber']);
+  if (tags['addr:street']) parts.push(tags['addr:street']);
+  if (tags['addr:city']) parts.push(tags['addr:city']);
+  if (tags['addr:postcode']) parts.push(tags['addr:postcode']);
+  if (tags['addr:country']) parts.push(tags['addr:country']);
+  
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+  
+  // Fallback to other address formats
+  return tags.address || 'Address not available';
 }
