@@ -10,6 +10,9 @@ export interface BusinessLead {
   source?: string;
   rating?: number;
   google_place_id?: string;
+  latitude?: number;
+  longitude?: number;
+  category?: string;
 }
 
 interface ErrorResponse {

@@ -37,6 +37,57 @@ const Dashboard = () => {
     });
     
     console.log('✅ Dashboard state updated with', results.length, 'results');
+
+    // Start enrichment process for leads with websites but missing contact info
+    if (results.length > 0) {
+      enrichLeadsWithContactInfo(results);
+    }
+  };
+
+  const enrichLeadsWithContactInfo = async (leads: BusinessLead[]) => {
+    // Only enrich leads that have websites but are missing email or phone
+    const leadsToEnrich = leads.filter(lead => 
+      lead.website && (!lead.email || !lead.phone)
+    );
+
+    if (leadsToEnrich.length === 0) {
+      console.log('🔍 No leads need enrichment');
+      return;
+    }
+
+    console.log(`🔄 Starting enrichment for ${leadsToEnrich.length} leads...`);
+    
+    try {
+      const { LeadEnrichmentService } = await import('@/utils/LeadEnrichmentService');
+      const enrichedLeads = await LeadEnrichmentService.enrichLeads(leadsToEnrich, 2);
+      
+      // Update the search results with enriched data
+      const updatedResults = leads.map(lead => {
+        const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
+        return enrichedLead || lead;
+      });
+
+      // Count how many leads were actually improved
+      const improvedCount = updatedResults.filter((updated, index) => {
+        const original = leads[index];
+        return LeadEnrichmentService.hasImprovedData(original, updated);
+      }).length;
+
+      if (improvedCount > 0) {
+        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information`);
+        setSearchResults(updatedResults);
+        
+        // Show success toast
+        const { toast } = await import('@/hooks/use-toast');
+        toast({
+          title: "Leads Enhanced",
+          description: `Found additional contact information for ${improvedCount} leads`,
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Lead enrichment failed:', error);
+    }
   };
 
   const handleQuickSearch = (location: string, businessType: string) => {
