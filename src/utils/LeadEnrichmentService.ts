@@ -12,43 +12,74 @@ export class LeadEnrichmentService {
     try {
       console.log(`🔍 Enriching lead: ${lead.name} - ${lead.website}`);
       
-      // Use a simple proxy/CORS service to fetch the website content
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(lead.website)}`);
+      // Create an AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      if (!response.ok) {
-        console.warn(`Failed to fetch website content for ${lead.website}`);
-        return lead;
+      try {
+        // Use a simple proxy/CORS service to fetch the website content
+        const response = await fetch(
+          `https://api.allorigins.win/get?url=${encodeURIComponent(lead.website)}`,
+          { 
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.warn(`❌ HTTP ${response.status} for ${lead.website}`);
+          return lead;
+        }
+
+        const data = await response.json();
+        const content = data.contents;
+
+        if (!content || typeof content !== 'string') {
+          console.warn(`❌ No content received for ${lead.website}`);
+          return lead;
+        }
+
+        // Extract additional contact information
+        const enrichedData = this.extractContactInfo(content);
+
+        // Merge the enriched data with the existing lead
+        const enrichedLead: BusinessLead = {
+          ...lead,
+          email: lead.email || enrichedData.email,
+          phone: lead.phone || enrichedData.phone,
+          address: lead.address || enrichedData.address,
+          description: lead.description || enrichedData.description,
+          instagram: lead.instagram || enrichedData.instagram
+        };
+
+        console.log(`✅ Enriched ${lead.name}:`, {
+          originalEmail: lead.email,
+          newEmail: enrichedData.email,
+          originalPhone: lead.phone,
+          newPhone: enrichedData.phone,
+          foundInstagram: enrichedData.instagram
+        });
+
+        return enrichedLead;
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.warn(`⏱️ Request timeout for ${lead.name} - ${lead.website}`);
+        } else if (fetchError instanceof TypeError && fetchError.message === 'Failed to fetch') {
+          console.warn(`🚫 CORS/Network error for ${lead.name} - ${lead.website}`);
+        } else {
+          console.warn(`❌ Fetch error for ${lead.name}:`, fetchError);
+        }
+        
+        return lead; // Return original lead on any fetch error
       }
-
-      const data = await response.json();
-      const content = data.contents;
-
-      if (!content) {
-        return lead;
-      }
-
-      // Extract additional contact information
-      const enrichedData = this.extractContactInfo(content);
-
-      // Merge the enriched data with the existing lead
-      const enrichedLead: BusinessLead = {
-        ...lead,
-        email: lead.email || enrichedData.email,
-        phone: lead.phone || enrichedData.phone,
-        address: lead.address || enrichedData.address,
-        description: lead.description || enrichedData.description,
-        instagram: lead.instagram || enrichedData.instagram
-      };
-
-      console.log(`✅ Enriched ${lead.name}:`, {
-        originalEmail: lead.email,
-        newEmail: enrichedData.email,
-        originalPhone: lead.phone,
-        newPhone: enrichedData.phone,
-        foundInstagram: enrichedData.instagram
-      });
-
-      return enrichedLead;
 
     } catch (error) {
       console.error(`Error enriching lead ${lead.name}:`, error);
