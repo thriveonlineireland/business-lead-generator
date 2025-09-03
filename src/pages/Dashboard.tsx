@@ -45,9 +45,9 @@ const Dashboard = () => {
   };
 
   const enrichLeadsWithContactInfo = async (leads: BusinessLead[]) => {
-    // Only enrich leads that have websites but are missing email or phone
+    // Only enrich leads that have websites but are missing contact info or Instagram
     const leadsToEnrich = leads.filter(lead => 
-      lead.website && (!lead.email || !lead.phone)
+      lead.website && (!lead.email || !lead.phone || !lead.instagram)
     );
 
     if (leadsToEnrich.length === 0) {

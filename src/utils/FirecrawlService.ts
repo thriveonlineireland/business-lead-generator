@@ -13,6 +13,7 @@ export interface BusinessLead {
   latitude?: number;
   longitude?: number;
   category?: string;
+  instagram?: string;
 }
 
 interface ErrorResponse {

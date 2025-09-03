@@ -36,14 +36,16 @@ export class LeadEnrichmentService {
         email: lead.email || enrichedData.email,
         phone: lead.phone || enrichedData.phone,
         address: lead.address || enrichedData.address,
-        description: lead.description || enrichedData.description
+        description: lead.description || enrichedData.description,
+        instagram: lead.instagram || enrichedData.instagram
       };
 
       console.log(`✅ Enriched ${lead.name}:`, {
         originalEmail: lead.email,
         newEmail: enrichedData.email,
         originalPhone: lead.phone,
-        newPhone: enrichedData.phone
+        newPhone: enrichedData.phone,
+        foundInstagram: enrichedData.instagram
       });
 
       return enrichedLead;
@@ -160,6 +162,24 @@ export class LeadEnrichmentService {
       }
     }
 
+    // Extract Instagram profile
+    const instagramPatterns = [
+      /https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9_.]+)\/?/gi,
+      /instagram\.com\/([a-zA-Z0-9_.]+)/gi,
+      /@([a-zA-Z0-9_.]+)\s*(?:on\s+)?instagram/gi
+    ];
+
+    for (const pattern of instagramPatterns) {
+      const matches = pattern.exec(content);
+      if (matches) {
+        const username = matches[1];
+        if (username && username.length > 0 && username.length < 30) {
+          result.instagram = `https://instagram.com/${username}`;
+          break;
+        }
+      }
+    }
+
     return result;
   }
 
@@ -175,7 +195,8 @@ export class LeadEnrichmentService {
       (!original.email && !!enriched.email) ||
       (!original.phone && !!enriched.phone) ||
       (!original.address && !!enriched.address) ||
-      (!original.description && !!enriched.description)
+      (!original.description && !!enriched.description) ||
+      (!original.instagram && !!enriched.instagram)
     );
   }
 }

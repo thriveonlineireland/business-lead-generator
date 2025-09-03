@@ -9,7 +9,7 @@ import { BusinessLead } from "@/utils/FirecrawlService";
 import { ExportService } from "@/utils/ExportService";
 import { StorageService } from "@/utils/StorageService";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin } from "lucide-react";
+import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin, Instagram } from "lucide-react";
 
 interface ResultsTableProps {
   leads: BusinessLead[];
@@ -25,7 +25,8 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
     lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.phone?.includes(searchTerm) ||
-    lead.website?.toLowerCase().includes(searchTerm.toLowerCase())
+    lead.website?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.instagram?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedLeads = [...filteredLeads].sort((a, b) => {
@@ -296,6 +297,20 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
                           className="text-primary hover:underline text-sm truncate max-w-[150px]"
                         >
                           {lead.website.replace(/^https?:\/\//, '')}
+                        </button>
+                      </div>
+                    )}
+                    {lead.instagram && (
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Instagram className="h-3 w-3 text-muted-foreground" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openWebsite(lead.instagram!);
+                          }}
+                          className="text-primary hover:underline text-sm"
+                        >
+                          Instagram
                         </button>
                       </div>
                     )}
