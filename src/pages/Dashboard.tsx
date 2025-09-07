@@ -64,11 +64,12 @@ const Dashboard = () => {
       return;
     }
 
-    console.log(`🔄 Starting enrichment for ${leadsToEnrich.length} leads...`);
+    console.log(`🔄 Starting FREE enrichment for ${leadsToEnrich.length} leads...`);
     
     try {
-      const { LeadEnrichmentService } = await import('@/utils/LeadEnrichmentService');
-      const enrichedLeads = await LeadEnrichmentService.enrichLeads(leadsToEnrich, 2);
+      // Use FREE enrichment service - no paid APIs required
+      const { FreeLeadEnrichmentService } = await import('@/utils/FreeLeadEnrichmentService');
+      const enrichedLeads = await FreeLeadEnrichmentService.enrichLeads(leadsToEnrich, 2);
       
       // Update the search results with enriched data
       const updatedResults = leads.map(lead => {
@@ -79,23 +80,23 @@ const Dashboard = () => {
       // Count how many leads were actually improved
       const improvedCount = updatedResults.filter((updated, index) => {
         const original = leads[index];
-        return LeadEnrichmentService.hasImprovedData(original, updated);
+        return FreeLeadEnrichmentService.hasImprovedData(original, updated);
       }).length;
 
       if (improvedCount > 0) {
-        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information`);
+        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information using FREE methods`);
         setSearchResults(updatedResults);
         
         // Show success toast
         const { toast } = await import('@/hooks/use-toast');
         toast({
-          title: "Leads Enhanced",
-          description: `Found additional contact information for ${improvedCount} leads`,
+          title: "Leads Enhanced (Free)",
+          description: `Found additional contact information for ${improvedCount} leads using free sources`,
           duration: 4000,
         });
       }
     } catch (error) {
-      console.error('❌ Lead enrichment failed:', error);
+      console.error('❌ FREE lead enrichment failed:', error);
     }
   };
 

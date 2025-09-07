@@ -196,16 +196,16 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
       
       console.log(`🔍 Searching for ${osmType} businesses`);
       
-      // Create multiple queries with different timeouts and larger result sets
+      // Enhanced queries with comprehensive contact info extraction
       const overpassQueries = [
-        // Primary query
+        // Primary query with extended contact fields
         `[out:json][timeout:30];
         (
           nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
           nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
         );
         out center meta;`,
-        // Secondary query with different approach
+        // Secondary query with regex matching
         `[out:json][timeout:30];
         (
           nwr["amenity"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
@@ -257,11 +257,15 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
               const lat = element.lat || element.center?.lat;
               const lon = element.lon || element.center?.lon;
               
+              // Enhanced contact info extraction from OSM tags
+              const contactInfo = extractEnhancedContactInfo(tags);
+              
               const lead: BusinessLead = {
                 name,
                 address,
-                phone: tags.phone || tags['contact:phone'] || undefined,
-                website: tags.website || tags['contact:website'] || undefined,
+                phone: contactInfo.phone,
+                website: contactInfo.website,
+                email: contactInfo.email,
                 category: tags.amenity || tags.shop || tags.cuisine || osmType,
                 latitude: lat,
                 longitude: lon,
@@ -286,6 +290,13 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
     if (leads.length < 100) {
       console.log(`🔄 Only found ${leads.length} results. Trying broader search for more results`);
       await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
+    }
+
+    // Add free directory searches to supplement OSM data
+    if (leads.length < maxResults * 0.8) {
+      console.log(`🔍 Adding free directory searches to supplement OSM data`);
+      const directoryLeads = await searchFreeDirectories(location, businessType, maxResults - leads.length);
+      leads.push(...directoryLeads);
     }
     
   } catch (error) {
@@ -408,4 +419,177 @@ function formatAddress(tags: any): string {
   
   // Fallback to other address formats
   return tags.address || 'Address not available';
+}
+
+// Enhanced contact info extraction from OSM tags
+function extractEnhancedContactInfo(tags: any): { phone?: string; website?: string; email?: string } {
+  const result: { phone?: string; website?: string; email?: string } = {};
+  
+  // Phone extraction - check multiple OSM contact fields
+  const phoneFields = [
+    'phone', 'contact:phone', 'phone:mobile', 'contact:mobile',
+    'telephone', 'contact:telephone', 'fax', 'contact:fax'
+  ];
+  
+  for (const field of phoneFields) {
+    if (tags[field]) {
+      // Clean and validate phone number
+      let phone = tags[field].toString().trim();
+      // Remove common prefixes and clean format
+      phone = phone.replace(/^tel:/, '').replace(/^phone:/, '');
+      if (phone.length >= 10 && /[\d\+\-\(\)\s]/.test(phone)) {
+        result.phone = phone;
+        break;
+      }
+    }
+  }
+  
+  // Website extraction - check multiple OSM website fields
+  const websiteFields = [
+    'website', 'contact:website', 'url', 'contact:url',
+    'website:en', 'website:official', 'homepage', 'contact:homepage'
+  ];
+  
+  for (const field of websiteFields) {
+    if (tags[field]) {
+      let website = tags[field].toString().trim();
+      // Ensure proper URL format
+      if (!website.startsWith('http')) {
+        website = 'https://' + website;
+      }
+      if (website.includes('.') && website.length > 10) {
+        result.website = website;
+        break;
+      }
+    }
+  }
+  
+  // Email extraction - check multiple OSM email fields
+  const emailFields = [
+    'email', 'contact:email', 'contact:e-mail', 'e-mail',
+    'email:info', 'contact:info', 'email:contact'
+  ];
+  
+  for (const field of emailFields) {
+    if (tags[field]) {
+      let email = tags[field].toString().trim().toLowerCase();
+      // Clean email format
+      email = email.replace(/^mailto:/, '');
+      if (email.includes('@') && email.includes('.') && !email.includes(' ')) {
+        result.email = email;
+        break;
+      }
+    }
+  }
+  
+  return result;
+}
+
+// Free directory search function
+async function searchFreeDirectories(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  const directoryLeads: BusinessLead[] = [];
+  
+  try {
+    // Use public APIs and free data sources
+    console.log(`🌐 Searching free directories for ${businessType} in ${location}`);
+    
+    // 1. Search using public business directory APIs (where available)
+    const publicLeads = await searchPublicBusinessAPIs(location, businessType, Math.min(maxResults, 50));
+    directoryLeads.push(...publicLeads);
+    
+    if (directoryLeads.length < maxResults) {
+      // 2. Use government open data sources
+      const govLeads = await searchGovernmentOpenData(location, businessType, maxResults - directoryLeads.length);
+      directoryLeads.push(...govLeads);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in free directory search:', error);
+  }
+  
+  console.log(`✅ Free directory search found ${directoryLeads.length} additional leads`);
+  return directoryLeads.slice(0, maxResults);
+}
+
+// Search public business APIs (free tier usage)
+async function searchPublicBusinessAPIs(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  const leads: BusinessLead[] = [];
+  
+  try {
+    // Use Wikipedia/Wikidata for business information (completely free)
+    const wikiLeads = await searchWikipediaBusinesses(location, businessType, maxResults);
+    leads.push(...wikiLeads);
+    
+  } catch (error) {
+    console.error('❌ Error searching public APIs:', error);
+  }
+  
+  return leads;
+}
+
+// Search Wikipedia/Wikidata for business information
+async function searchWikipediaBusinesses(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  const leads: BusinessLead[] = [];
+  
+  try {
+    // Search Wikipedia for businesses in the location
+    const searchQuery = `${businessType} ${location} business restaurant cafe shop`;
+    const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/search?q=${encodeURIComponent(searchQuery)}&limit=${Math.min(maxResults, 20)}`;
+    
+    const response = await fetch(wikiUrl, {
+      headers: {
+        'User-Agent': 'BusinessLeadSearchApp/1.0'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data.pages) {
+        for (const page of data.pages.slice(0, 10)) {
+          // Only include if it looks like a business
+          const title = page.title.toLowerCase();
+          const description = (page.description || '').toLowerCase();
+          
+          if (title.includes(businessType.toLowerCase()) || 
+              title.includes('restaurant') || title.includes('cafe') || 
+              title.includes('shop') || title.includes('company') ||
+              description.includes('business') || description.includes('restaurant')) {
+            
+            leads.push({
+              name: page.title,
+              address: location,
+              source: 'Wikipedia (Free)',
+              website: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`,
+              category: businessType
+            });
+          }
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Error searching Wikipedia:', error);
+  }
+  
+  return leads;
+}
+
+// Search government open data sources
+async function searchGovernmentOpenData(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  const leads: BusinessLead[] = [];
+  
+  try {
+    // This would integrate with various government open data APIs
+    // For now, return empty but structure is ready for implementation
+    console.log(`🏛️ Government open data search for ${businessType} in ${location} (placeholder)`);
+    
+    // Example: UK Companies House API, US business registries, etc.
+    // Implementation would depend on the specific location and available APIs
+    
+  } catch (error) {
+    console.error('❌ Error searching government data:', error);
+  }
+  
+  return leads;
 }
