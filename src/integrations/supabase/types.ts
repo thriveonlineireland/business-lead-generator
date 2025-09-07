@@ -20,12 +20,18 @@ export type Database = {
           business_type: string | null
           created_at: string
           email: string | null
+          estimated_value: number | null
           google_place_id: string | null
           id: string
+          last_contact_date: string | null
           location_searched: string | null
           name: string
+          next_follow_up: string | null
+          notes: string | null
           phone: string | null
+          priority: string | null
           rating: number | null
+          status: string | null
           updated_at: string
           user_id: string
           website: string | null
@@ -35,12 +41,18 @@ export type Database = {
           business_type?: string | null
           created_at?: string
           email?: string | null
+          estimated_value?: number | null
           google_place_id?: string | null
           id?: string
+          last_contact_date?: string | null
           location_searched?: string | null
           name: string
+          next_follow_up?: string | null
+          notes?: string | null
           phone?: string | null
+          priority?: string | null
           rating?: number | null
+          status?: string | null
           updated_at?: string
           user_id: string
           website?: string | null
@@ -50,15 +62,230 @@ export type Database = {
           business_type?: string | null
           created_at?: string
           email?: string | null
+          estimated_value?: number | null
           google_place_id?: string | null
           id?: string
+          last_contact_date?: string | null
           location_searched?: string | null
           name?: string
+          next_follow_up?: string | null
+          notes?: string | null
           phone?: string | null
+          priority?: string | null
           rating?: number | null
+          status?: string | null
           updated_at?: string
           user_id?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string
+          clicked_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string
+          opened_at: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "business_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          clicked_count: number | null
+          content: string
+          created_at: string
+          id: string
+          name: string
+          opened_count: number | null
+          scheduled_at: string | null
+          sent_count: number | null
+          status: string
+          subject: string
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clicked_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          name: string
+          opened_count?: number | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          status?: string
+          subject: string
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clicked_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          opened_count?: number | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          status?: string
+          subject?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lead_interactions: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          interaction_type: string
+          lead_id: string
+          metadata: Json | null
+          outcome: string | null
+          scheduled_follow_up: string | null
+          subject: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          interaction_type: string
+          lead_id: string
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_follow_up?: string | null
+          subject?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          lead_id?: string
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_follow_up?: string | null
+          subject?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "business_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tag_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tag_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "business_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "lead_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -167,6 +394,45 @@ export type Database = {
           query?: string
           results_count?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      subscribers: {
+        Row: {
+          created_at: string
+          credits_remaining: number | null
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_tier: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credits_remaining?: number | null
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credits_remaining?: number | null
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
