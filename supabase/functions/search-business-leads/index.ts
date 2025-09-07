@@ -29,7 +29,8 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
   'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
   'automotive': ['car_repair', 'car_wash', 'fuel', 'car_dealer'],
-  'professional': ['office', 'lawyer', 'accountant', 'insurance'],
+  'professional': ['office', 'lawyer', 'accountant', 'insurance', 'consultant'],
+  'accountant': ['office', 'accountant', 'accounting', 'bookkeeper', 'tax_advisor'],
   'education': ['school', 'kindergarten', 'university', 'college']
 };
 
@@ -533,7 +534,7 @@ async function searchWikipediaBusinesses(location: string, businessType: string,
   
   try {
     // Search Wikipedia for businesses in the location
-    const searchQuery = `${businessType} ${location} business restaurant cafe shop`;
+    const searchQuery = `${businessType} ${location} business company services`;
     const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/search?q=${encodeURIComponent(searchQuery)}&limit=${Math.min(maxResults, 20)}`;
     
     const response = await fetch(wikiUrl, {
@@ -552,9 +553,9 @@ async function searchWikipediaBusinesses(location: string, businessType: string,
           const description = (page.description || '').toLowerCase();
           
           if (title.includes(businessType.toLowerCase()) || 
-              title.includes('restaurant') || title.includes('cafe') || 
-              title.includes('shop') || title.includes('company') ||
-              description.includes('business') || description.includes('restaurant')) {
+              title.includes('company') || title.includes('services') ||
+              title.includes('firm') || title.includes('llc') ||
+              description.includes('business') || description.includes(businessType.toLowerCase())) {
             
             leads.push({
               name: page.title,

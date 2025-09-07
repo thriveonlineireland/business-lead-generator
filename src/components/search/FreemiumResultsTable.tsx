@@ -30,15 +30,19 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
 
   // Calculate data completeness stats
   const getDataCompleteness = (lead: BusinessLead) => {
-    const fields = [lead.email, lead.phone, lead.website].filter(Boolean);
+    const hasEmail = lead.email && lead.email.trim() !== '' && lead.email.includes('@');
+    const hasPhone = lead.phone && lead.phone.trim() !== '' && lead.phone.length >= 10;
+    const hasWebsite = lead.website && lead.website.trim() !== '' && lead.website.includes('.');
+    
+    const fields = [hasEmail, hasPhone, hasWebsite].filter(Boolean);
     return {
       score: fields.length,
       total: 3,
       percentage: Math.round((fields.length / 3) * 100),
       missing: [
-        !lead.email && 'Email',
-        !lead.phone && 'Phone', 
-        !lead.website && 'Website'
+        !hasEmail && 'Email',
+        !hasPhone && 'Phone', 
+        !hasWebsite && 'Website'
       ].filter(Boolean)
     };
   };
