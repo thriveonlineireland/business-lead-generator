@@ -372,6 +372,8 @@ export type Database = {
           business_type: string
           created_at: string
           id: string
+          is_premium: boolean | null
+          leads: Json | null
           location: string
           query: string
           results_count: number | null
@@ -381,6 +383,8 @@ export type Database = {
           business_type: string
           created_at?: string
           id?: string
+          is_premium?: boolean | null
+          leads?: Json | null
           location: string
           query: string
           results_count?: number | null
@@ -390,6 +394,8 @@ export type Database = {
           business_type?: string
           created_at?: string
           id?: string
+          is_premium?: boolean | null
+          leads?: Json | null
           location?: string
           query?: string
           results_count?: number | null

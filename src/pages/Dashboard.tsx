@@ -15,6 +15,7 @@ import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { useToast } from "@/hooks/use-toast";
 import LeadManagement from "@/components/crm/LeadManagement";
 import PipelineView from "@/components/crm/PipelineView";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user, isLoading } = useAuth();
@@ -175,14 +176,49 @@ const Dashboard = () => {
     }
   };
 
-  const handleUpgrade = (leadCount: number) => {
+  const handleUpgrade = async (leadCount: number) => {
     console.log('User wants to purchase leads:', leadCount);
-    // TODO: Implement Stripe checkout for pay-per-leads
-    toast({
-      title: "Payment Coming Soon!",
-      description: `Payment for ${leadCount} leads (€${Math.ceil(leadCount / 100) * 10}) will be available soon.`,
-      duration: 4000,
-    });
+    
+    if (!searchResults || searchResults.length === 0 || !currentSearchParams) {
+      toast({
+        title: "No search results",
+        description: "Please perform a search first before upgrading.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Save the search as premium with lead data
+      const lastSearchQuery = `${currentSearchParams.businessType} in ${currentSearchParams.location}`;
+      
+      const { error } = await supabase.from('search_history').insert({
+        user_id: user?.id,
+        query: lastSearchQuery,
+        location: currentSearchParams.location,
+        business_type: currentSearchParams.businessType,
+        results_count: searchResults.length,
+        is_premium: true,
+        leads: JSON.parse(JSON.stringify(searchResults)) // Convert to JSON-compatible format
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Premium Access Granted! 🎉",
+        description: `Full access to all ${searchResults.length} leads has been saved to your history.`,
+        duration: 5000,
+      });
+      
+      setShowUpgradeModal(false);
+    } catch (error) {
+      console.error('Error saving premium search:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save premium search. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {

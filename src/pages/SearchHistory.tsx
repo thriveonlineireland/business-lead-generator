@@ -9,8 +9,11 @@ import { StorageService, SearchHistory, SavedSearch } from "@/utils/StorageServi
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye } from "lucide-react";
+import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye, Crown } from "lucide-react";
 import { ExportService } from "@/utils/ExportService";
+import { BusinessLead } from "@/utils/FirecrawlService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
 
 const SearchHistoryPage = () => {
   const { toast } = useToast();
@@ -20,6 +23,10 @@ const SearchHistoryPage = () => {
   const [supabaseLeads, setSupabaseLeads] = useState<any[]>([]);
   const [supabaseSearchHistory, setSupabaseSearchHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewingResults, setViewingResults] = useState<{
+    leads: BusinessLead[];
+    searchInfo: any;
+  } | null>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -101,6 +108,32 @@ const SearchHistoryPage = () => {
       title: "Export Successful",
       description: `Exported ${savedSearch.leads.length} leads from "${savedSearch.name}"`,
     });
+  };
+
+  const viewPremiumResults = (searchItem: any) => {
+    if (!searchItem.leads || !searchItem.is_premium) {
+      toast({
+        title: "No premium data available",
+        description: "This search doesn't have saved lead data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Parse leads from JSON if needed
+      const leads = Array.isArray(searchItem.leads) ? searchItem.leads : JSON.parse(searchItem.leads);
+      setViewingResults({
+        leads: leads as BusinessLead[],
+        searchInfo: searchItem
+      });
+    } catch (error) {
+      toast({
+        title: "Error loading results",
+        description: "Failed to load premium search results.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredHistory = searchHistory.filter(
@@ -290,37 +323,61 @@ const SearchHistoryPage = () => {
                 {supabaseSearchHistory.length > 0 ? (
                   <div className="rounded-lg border overflow-hidden">
                     <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold">Search Query</TableHead>
-                          <TableHead className="font-semibold">Results</TableHead>
-                          <TableHead className="font-semibold">Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {supabaseSearchHistory.map((item) => (
-                          <TableRow key={item.id} className="hover:bg-muted/50">
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-medium">{item.query}</div>
-                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                  <MapPin className="h-3 w-3" />
-                                  <span>{item.location}</span>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium">{item.results_count}</span>
-                              <span className="text-muted-foreground"> leads</span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2 text-sm">
-                                <Calendar className="h-3 w-3 text-muted-foreground" />
-                                <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                       <TableHeader>
+                         <TableRow className="bg-muted/50">
+                           <TableHead className="font-semibold">Search Query</TableHead>
+                           <TableHead className="font-semibold">Results</TableHead>
+                           <TableHead className="font-semibold">Date</TableHead>
+                           <TableHead className="font-semibold">Actions</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {supabaseSearchHistory.map((item) => (
+                           <TableRow key={item.id} className="hover:bg-muted/50">
+                             <TableCell>
+                               <div className="space-y-1">
+                                 <div className="flex items-center space-x-2">
+                                   <span className="font-medium">{item.query}</span>
+                                   {item.is_premium && (
+                                     <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 flex items-center space-x-1">
+                                       <Crown className="h-3 w-3" />
+                                       <span>Premium</span>
+                                     </Badge>
+                                   )}
+                                 </div>
+                                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                   <MapPin className="h-3 w-3" />
+                                   <span>{item.location}</span>
+                                 </div>
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <span className="font-medium">{item.results_count}</span>
+                               <span className="text-muted-foreground"> leads</span>
+                             </TableCell>
+                             <TableCell>
+                               <div className="flex items-center space-x-2 text-sm">
+                                 <Calendar className="h-3 w-3 text-muted-foreground" />
+                                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               {item.is_premium && item.leads ? (
+                                 <EnhancedButton
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => viewPremiumResults(item)}
+                                   className="flex items-center space-x-2"
+                                 >
+                                   <Eye className="h-4 w-4" />
+                                   <span>View Results</span>
+                                 </EnhancedButton>
+                               ) : (
+                                 <span className="text-xs text-muted-foreground">No saved data</span>
+                               )}
+                             </TableCell>
+                           </TableRow>
+                         ))}
                       </TableBody>
                     </Table>
                   </div>
@@ -509,6 +566,31 @@ const SearchHistoryPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Premium Results Dialog */}
+      <Dialog open={!!viewingResults} onOpenChange={() => setViewingResults(null)}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Crown className="h-5 w-5 text-yellow-500" />
+              <span>Premium Search Results</span>
+            </DialogTitle>
+            <DialogDescription>
+              {viewingResults && (
+                <>Search: {viewingResults.searchInfo.query} - {viewingResults.leads.length} leads found</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingResults && (
+            <div className="overflow-auto">
+              <FreemiumResultsTable 
+                leads={viewingResults.leads} 
+                onUpgrade={() => {}} 
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
