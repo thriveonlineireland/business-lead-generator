@@ -24,8 +24,21 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
 
   // Show 10% of total results as freemium preview (minimum 5, maximum 50)
+  // But prioritize leads with complete contact information
   const freeLeadLimit = Math.max(5, Math.min(50, Math.floor(leads.length * 0.1)));
-  const freeLeads = leads.slice(0, freeLeadLimit);
+  
+  // Sort all leads by data completeness (complete leads first)
+  const leadsByCompleteness = [...leads].sort((a, b) => {
+    const scoreA = getDataCompleteness(a).score;
+    const scoreB = getDataCompleteness(b).score;
+    if (scoreA !== scoreB) {
+      return scoreB - scoreA; // Higher completeness first
+    }
+    // If same completeness, sort alphabetically
+    return a.name.localeCompare(b.name);
+  });
+  
+  const freeLeads = leadsByCompleteness.slice(0, freeLeadLimit);
   const hiddenLeadsCount = Math.max(0, leads.length - freeLeadLimit);
 
   // Calculate data completeness stats
