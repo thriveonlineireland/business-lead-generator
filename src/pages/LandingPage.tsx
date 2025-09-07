@@ -187,33 +187,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Ready to Start Finding Leads?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Set up your Firecrawl API key and start discovering business opportunities today.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <EnhancedButton variant="gradient" size="lg" asChild>
-                <Link to="/settings">
-                  <SettingsIcon className="mr-2 h-5 w-5" />
-                  Configure API Key
-                </Link>
-              </EnhancedButton>
-            
-            <EnhancedButton variant="outline" size="lg" asChild>
-              <Link to="/dashboard">
-                <Users className="mr-2 h-5 w-5" />
-                Start Searching
-              </Link>
-            </EnhancedButton>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
