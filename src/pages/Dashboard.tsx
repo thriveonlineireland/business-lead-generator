@@ -60,16 +60,16 @@ const Dashboard = () => {
     
     console.log('✅ Dashboard state updated with', results.length, 'results');
 
-    // Start enrichment process for leads with websites but missing contact info
+    // Start background enrichment process (non-blocking)
     if (results.length > 0) {
-      enrichLeadsWithContactInfo(results);
+      enrichLeadsInBackground(results);
     }
   };
 
-  const enrichLeadsWithContactInfo = async (leads: BusinessLead[]) => {
-    // Only enrich leads that have websites but are missing contact info or Instagram
+  const enrichLeadsInBackground = async (leads: BusinessLead[]) => {
+    // Only enrich leads that have websites but are missing contact info
     const leadsToEnrich = leads.filter(lead => 
-      lead.website && (!lead.email || !lead.phone || !lead.instagram)
+      lead.website && (!lead.email || !lead.phone)
     );
 
     if (leadsToEnrich.length === 0) {
@@ -77,39 +77,42 @@ const Dashboard = () => {
       return;
     }
 
-    console.log(`🔄 Starting FREE enrichment for ${leadsToEnrich.length} leads...`);
+    console.log(`🔄 Starting background enrichment for ${leadsToEnrich.length} leads...`);
     
     try {
-      // Use FREE enrichment service - no paid APIs required
+      // Use smaller batch size for faster initial results
       const { FreeLeadEnrichmentService } = await import('@/utils/FreeLeadEnrichmentService');
-      const enrichedLeads = await FreeLeadEnrichmentService.enrichLeads(leadsToEnrich, 2);
+      const enrichedLeads = await FreeLeadEnrichmentService.enrichLeads(leadsToEnrich, 1);
       
-      // Update the search results with enriched data
-      const updatedResults = leads.map(lead => {
-        const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
-        return enrichedLead || lead;
+      // Update only the leads that were actually improved
+      setSearchResults(currentResults => {
+        const updatedResults = currentResults.map(lead => {
+          const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
+          return enrichedLead && FreeLeadEnrichmentService.hasImprovedData(lead, enrichedLead) 
+            ? enrichedLead 
+            : lead;
+        });
+        
+        return updatedResults;
       });
 
-      // Count how many leads were actually improved
-      const improvedCount = updatedResults.filter((updated, index) => {
-        const original = leads[index];
-        return FreeLeadEnrichmentService.hasImprovedData(original, updated);
+      // Count improvements
+      const improvedCount = enrichedLeads.filter(enriched => {
+        const original = leads.find(l => l.name === enriched.name && l.website === enriched.website);
+        return original && FreeLeadEnrichmentService.hasImprovedData(original, enriched);
       }).length;
 
       if (improvedCount > 0) {
-        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information using FREE methods`);
-        setSearchResults(updatedResults);
-        
-        // Show success toast
-        const { toast } = await import('@/hooks/use-toast');
+        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information`);
         toast({
-          title: "Leads Enhanced (Free)",
-          description: `Found additional contact information for ${improvedCount} leads using free sources`,
-          duration: 4000,
+          title: "Leads Enhanced",
+          description: `Found additional contact information for ${improvedCount} leads`,
+          duration: 3000,
         });
       }
     } catch (error) {
-      console.error('❌ FREE lead enrichment failed:', error);
+      console.error('❌ Background enrichment failed:', error);
+      // Don't show error toast for background process
     }
   };
 

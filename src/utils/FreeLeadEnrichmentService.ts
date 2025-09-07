@@ -2,18 +2,26 @@ import { BusinessLead } from './FirecrawlService';
 
 export class FreeLeadEnrichmentService {
   /**
-   * Enriches leads using completely free methods - no paid APIs required
+   * Enriches leads using completely free methods - optimized for speed
    */
-  static async enrichLeads(leads: BusinessLead[], batchSize: number = 2): Promise<BusinessLead[]> {
+  static async enrichLeads(leads: BusinessLead[], batchSize: number = 1): Promise<BusinessLead[]> {
     const enrichedLeads: BusinessLead[] = [];
     
-    console.log(`🆓 Starting FREE enrichment for ${leads.length} leads (batch size: ${batchSize})`);
+    console.log(`🆓 Starting optimized enrichment for ${leads.length} leads (batch size: ${batchSize})`);
 
     for (let i = 0; i < leads.length; i += batchSize) {
       const batch = leads.slice(i, i + batchSize);
       
-      // Process batch in parallel but limit concurrency
-      const batchPromises = batch.map(lead => this.enrichSingleLead(lead));
+      // Process batch in parallel with timeout
+      const batchPromises = batch.map(lead => 
+        Promise.race([
+          this.enrichSingleLead(lead),
+          new Promise<BusinessLead>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 8000)
+          )
+        ]).catch(() => lead) // Return original on error
+      );
+      
       const batchResults = await Promise.allSettled(batchPromises);
       
       // Extract successful results
@@ -24,14 +32,14 @@ export class FreeLeadEnrichmentService {
       
       enrichedLeads.push(...successfulResults);
       
-      // Add delay between batches to be respectful to free services
+      // Shorter delay for better UX (was 3000ms)
       if (i + batchSize < leads.length) {
-        console.log(`⏳ Processed ${i + batchSize}/${leads.length} leads, waiting before next batch...`);
-        await this.delay(3000); // Longer delay for free services
+        console.log(`⏳ Processed ${i + batchSize}/${leads.length} leads...`);
+        await this.delay(1000); // Reduced from 3000ms
       }
     }
 
-    console.log(`✅ FREE enrichment completed: ${enrichedLeads.length}/${leads.length} leads processed`);
+    console.log(`✅ Optimized enrichment completed: ${enrichedLeads.length}/${leads.length} leads processed`);
     return enrichedLeads;
   }
 
@@ -81,7 +89,7 @@ export class FreeLeadEnrichmentService {
   }
 
   /**
-   * Extract contact info from website using free CORS proxy
+   * Extract contact info from website using free CORS proxy - with better error handling
    */
   private static async extractFromWebsite(website: string): Promise<Partial<BusinessLead>> {
     try {
@@ -89,7 +97,7 @@ export class FreeLeadEnrichmentService {
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(website)}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // Reduced timeout
       
       const response = await fetch(proxyUrl, {
         signal: controller.signal,
@@ -101,17 +109,26 @@ export class FreeLeadEnrichmentService {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        console.warn(`❌ Failed to fetch ${website}: ${response.status}`);
+        console.warn(`⚠️ Failed to fetch ${website}: ${response.status}`);
         return {};
       }
 
       const data = await response.json();
       const content = data.contents || '';
 
+      if (!content) {
+        console.warn(`⚠️ No content from ${website}`);
+        return {};
+      }
+
       return this.extractContactInfoFromText(content);
 
     } catch (error) {
-      console.warn(`❌ Website extraction failed for ${website}:`, error);
+      if (error.name === 'AbortError') {
+        console.warn(`⏰ Timeout extracting from ${website}`);
+      } else {
+        console.warn(`❌ Website extraction failed for ${website}:`, error.message);
+      }
       return {};
     }
   }
