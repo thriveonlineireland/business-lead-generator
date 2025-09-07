@@ -28,9 +28,12 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'fitness': ['fitness_centre', 'gym', 'yoga', 'sports_centre'],
   'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
   'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
+  'dentist': ['dentist', 'dental', 'orthodontist'],
+  'doctor': ['doctors', 'clinic', 'hospital', 'medical'],
   'automotive': ['car_repair', 'car_wash', 'fuel', 'car_dealer'],
   'professional': ['office', 'lawyer', 'accountant', 'insurance', 'consultant'],
   'accountant': ['office', 'accountant', 'accounting', 'bookkeeper', 'tax_advisor'],
+  'lawyer': ['office', 'lawyer', 'legal', 'attorney'],
   'education': ['school', 'kindergarten', 'university', 'college']
 };
 
@@ -156,7 +159,13 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
   console.log(`🗺️ Searching OpenStreetMap for ${businessType} in ${location}`);
   
   const leads: BusinessLead[] = [];
-  const osmTypes = OSM_BUSINESS_TYPES[businessType] || ['shop'];
+  
+  // Get the correct OSM types for this business type
+  const osmTypes = OSM_BUSINESS_TYPES[businessType.toLowerCase()] || 
+                   OSM_BUSINESS_TYPES[businessType.toLowerCase().replace(/s$/, '')] || // Try singular form
+                   ['office']; // Default fallback for professional services
+  
+  console.log(`🎯 Using OSM types for '${businessType}':`, osmTypes);
   
   try {
     // First, geocode the location using Nominatim (free)
@@ -204,14 +213,16 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
         (
           nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
           nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["healthcare"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["healthcare:speciality"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
         );
         out center meta;`,
-        // Secondary query with regex matching
+        // Secondary query with regex matching for medical/dental practices
         `[out:json][timeout:30];
         (
           nwr["amenity"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["shop"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["cuisine"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["healthcare"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["name"~"${businessType}"i](${minLat},${minLon},${maxLat},${maxLon});
         );
         out center meta;`
       ];
@@ -244,7 +255,13 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
               if (leads.length >= maxResults) break;
               
               const tags = element.tags || {};
-              const name = tags.name || tags.brand || `${osmType} Business`;
+              const name = tags.name || tags.brand || `${businessType} Business`;
+              
+              // Filter out results that don't match the business type
+              if (!isRelevantToBusinessType(businessType, name, tags)) {
+                console.log(`❌ Skipping irrelevant result: ${name} (${tags.amenity || tags.shop || tags.healthcare})`);
+                continue;
+              }
               
               // Skip if we already have this business (check by name and location)
               if (leads.some(lead => 
@@ -267,7 +284,7 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
                 phone: contactInfo.phone,
                 website: contactInfo.website,
                 email: contactInfo.email,
-                category: tags.amenity || tags.shop || tags.cuisine || osmType,
+                category: tags.amenity || tags.shop || tags.healthcare || osmType,
                 latitude: lat,
                 longitude: lon,
                 source: 'OpenStreetMap (Free)'
@@ -288,7 +305,7 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
     }
     
     // If we didn't find many results, try a broader search with generic terms
-    if (leads.length < 100) {
+    if (leads.length < 50) {
       console.log(`🔄 Only found ${leads.length} results. Trying broader search for more results`);
       await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
     }
@@ -392,6 +409,75 @@ async function searchBroaderCategories(
     } catch (error) {
       console.error(`❌ Error in broader search for ${category}:`, error);
     }
+  }
+}
+
+// Function to check if a business is relevant to the search type
+function isRelevantToBusinessType(businessType: string, name: string, tags: any): boolean {
+  const searchTerm = businessType.toLowerCase();
+  const businessName = name.toLowerCase();
+  
+  // Direct name matching
+  if (businessName.includes(searchTerm)) {
+    return true;
+  }
+  
+  // Check specific business type mappings
+  const relevantTags = [
+    tags.amenity?.toLowerCase(),
+    tags.shop?.toLowerCase(), 
+    tags.healthcare?.toLowerCase(),
+    tags['healthcare:speciality']?.toLowerCase(),
+    tags.office?.toLowerCase()
+  ].filter(Boolean);
+  
+  // Business type specific checks
+  switch (searchTerm) {
+    case 'dentist':
+    case 'dental':
+      return businessName.includes('dental') || 
+             businessName.includes('dentist') || 
+             businessName.includes('orthodont') ||
+             relevantTags.includes('dentist') ||
+             relevantTags.includes('dental') ||
+             tags['healthcare:speciality'] === 'dentistry';
+             
+    case 'doctor':
+    case 'medical':
+      return businessName.includes('doctor') || 
+             businessName.includes('medical') || 
+             businessName.includes('clinic') ||
+             relevantTags.includes('doctors') ||
+             relevantTags.includes('clinic') ||
+             relevantTags.includes('hospital');
+             
+    case 'accountant':
+    case 'accounting':
+      return businessName.includes('accountant') || 
+             businessName.includes('accounting') || 
+             businessName.includes('bookkeep') ||
+             businessName.includes('tax') ||
+             relevantTags.includes('accountant');
+             
+    case 'lawyer':
+    case 'legal':
+      return businessName.includes('lawyer') || 
+             businessName.includes('legal') || 
+             businessName.includes('attorney') ||
+             businessName.includes('solicitor') ||
+             relevantTags.includes('lawyer');
+             
+    case 'cafe':
+    case 'coffee':
+      return businessName.includes('cafe') || 
+             businessName.includes('coffee') ||
+             relevantTags.includes('cafe') ||
+             relevantTags.includes('coffee_shop');
+             
+    default:
+      // For other business types, use generic matching
+      return relevantTags.some(tag => tag?.includes(searchTerm)) ||
+             businessName.includes(searchTerm);
   }
 }
 
