@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { EnhancedButton } from "@/components/ui/enhanced-button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { ExportService } from "@/utils/ExportService";
 import { StorageService } from "@/utils/StorageService";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin, Instagram, Lock, Crown } from "lucide-react";
+import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin, Instagram, Lock, Crown, AlertCircle, CheckCircle, Info } from "lucide-react";
 
 interface FreemiumResultsTableProps {
   leads: BusinessLead[];
@@ -26,6 +27,30 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
 
   const freeLeads = leads.slice(0, FREE_LEAD_LIMIT);
   const hiddenLeadsCount = Math.max(0, leads.length - FREE_LEAD_LIMIT);
+
+  // Calculate data completeness stats
+  const getDataCompleteness = (lead: BusinessLead) => {
+    const fields = [lead.email, lead.phone, lead.website].filter(Boolean);
+    return {
+      score: fields.length,
+      total: 3,
+      percentage: Math.round((fields.length / 3) * 100),
+      missing: [
+        !lead.email && 'Email',
+        !lead.phone && 'Phone', 
+        !lead.website && 'Website'
+      ].filter(Boolean)
+    };
+  };
+
+  const dataQualityStats = {
+    complete: freeLeads.filter(lead => getDataCompleteness(lead).score === 3).length,
+    partial: freeLeads.filter(lead => {
+      const score = getDataCompleteness(lead).score;
+      return score > 0 && score < 3;
+    }).length,
+    minimal: freeLeads.filter(lead => getDataCompleteness(lead).score === 0).length
+  };
 
   const filteredLeads = freeLeads.filter(lead =>
     lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -134,7 +159,48 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
   };
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Data Quality Summary */}
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Data Quality Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-2xl font-bold text-green-600">{dataQualityStats.complete}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Complete Contact Info</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <span className="text-2xl font-bold text-yellow-600">{dataQualityStats.partial}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Partial Contact Info</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-2xl font-bold text-red-600">{dataQualityStats.minimal}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Name Only</p>
+              </div>
+            </div>
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>💡 Tip:</strong> Leads with missing contact info can still be valuable. Try searching for them on LinkedIn, 
+                Google, or their business directory listings to find phone numbers and email addresses.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       <Card className="shadow-medium border-0 animate-slide-up">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -253,7 +319,60 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                     
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium text-foreground">{lead.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground">{lead.name}</span>
+                          {(() => {
+                            const completeness = getDataCompleteness(lead);
+                            if (completeness.score === 3) {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                                      Complete
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Has email, phone, and website</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            } else if (completeness.score > 0) {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 text-xs">
+                                      {completeness.percentage}%
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Missing: {completeness.missing.join(', ')}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            } else {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+                                      Name Only
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="max-w-xs">
+                                      <p className="font-medium mb-1">Missing all contact info</p>
+                                      <p className="text-xs">Try searching:</p>
+                                      <ul className="text-xs list-disc list-inside mt-1">
+                                        <li>"{lead.name}" + "contact"</li>
+                                        <li>Google Maps or business directories</li>
+                                        <li>LinkedIn company page</li>
+                                      </ul>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            }
+                          })()}
+                        </div>
                         {lead.address && (
                           <div className="text-sm text-muted-foreground">{lead.address}</div>
                         )}
@@ -262,9 +381,9 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                     
                     <TableCell>
                       <div className="space-y-2">
-                        {lead.email && (
+                        {lead.email ? (
                           <div className="flex items-center space-x-2 text-sm">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <Mail className="h-3 w-3 text-green-500" />
                             <a
                               href={`mailto:${lead.email}`}
                               className="text-primary hover:underline"
@@ -273,10 +392,23 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                               {lead.email}
                             </a>
                           </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                            <Mail className="h-3 w-3 text-red-400" />
+                            <span>No email found</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Try searching "{lead.name} email" or check their website's contact page</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                         )}
-                        {lead.phone && (
+                        {lead.phone ? (
                           <div className="flex items-center space-x-2 text-sm">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <Phone className="h-3 w-3 text-green-500" />
                             <a
                               href={`tel:${lead.phone}`}
                               className="text-primary hover:underline"
@@ -285,14 +417,27 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                               {formatPhone(lead.phone)}
                             </a>
                           </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                            <Phone className="h-3 w-3 text-red-400" />
+                            <span>No phone found</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Check Google Maps, Yellow Pages, or business directories</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                         )}
                       </div>
                     </TableCell>
                     
                     <TableCell>
-                      {lead.website && (
+                      {lead.website ? (
                         <div className="flex items-center space-x-2">
-                          <Globe className="h-3 w-3 text-muted-foreground" />
+                          <Globe className="h-3 w-3 text-green-500" />
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -302,6 +447,19 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                           >
                             {lead.website.replace(/^https?:\/\//, '')}
                           </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Globe className="h-3 w-3 text-red-400" />
+                          <span>No website</span>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Try searching "{lead.name}.com" or "{lead.name}" + website</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       )}
                       {lead.instagram && (
@@ -427,7 +585,8 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
