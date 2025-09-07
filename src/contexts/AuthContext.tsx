@@ -61,24 +61,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     console.log('🔄 Sign out initiated');
+    
+    // Clear local state immediately
+    setSession(null);
+    setUser(null);
+    
     try {
-      // Use the global signOut option which doesn't require an active session
-      const { error } = await supabase.auth.signOut({ scope: 'global' });
-      if (error) {
-        console.error('❌ Sign out error:', error);
-      } else {
-        console.log('✅ Sign out successful');
-      }
+      // Clear all Supabase related localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('supabase.auth.token') || key.startsWith('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Try to sign out from Supabase, but don't fail if it doesn't work
+      await supabase.auth.signOut();
+      console.log('✅ Sign out successful');
     } catch (err) {
-      console.error('❌ Sign out exception:', err);
-    } finally {
-      // Always clear local state and redirect, even if API call failed
-      console.log('🔄 Clearing local state and redirecting');
-      setSession(null);
-      setUser(null);
-      // Force a page reload to clear any stale state
-      window.location.href = '/';
+      console.log('⚠️ Supabase sign out failed, but continuing with local cleanup:', err);
     }
+    
+    // Force redirect to home page
+    console.log('🔄 Redirecting to home page');
+    window.location.href = '/';
   };
 
   const value = {
