@@ -62,7 +62,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = async () => {
     console.log('🔄 Sign out initiated');
     try {
-      const { error } = await supabase.auth.signOut();
+      // Use the global signOut option which doesn't require an active session
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
         console.error('❌ Sign out error:', error);
       } else {
@@ -70,6 +71,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     } catch (err) {
       console.error('❌ Sign out exception:', err);
+    } finally {
+      // Always clear local state and redirect, even if API call failed
+      console.log('🔄 Clearing local state and redirecting');
+      setSession(null);
+      setUser(null);
+      // Force a page reload to clear any stale state
+      window.location.href = '/';
     }
   };
 
