@@ -129,12 +129,12 @@ const Dashboard = () => {
     }
   };
 
-  const handleUpgrade = (plan: string) => {
-    console.log('User selected plan:', plan);
-    // TODO: Implement Stripe checkout
+  const handleUpgrade = (leadCount: number) => {
+    console.log('User wants to purchase leads:', leadCount);
+    // TODO: Implement Stripe checkout for pay-per-leads
     toast({
-      title: "Upgrade Coming Soon!",
-      description: `Payment integration for ${plan} plan will be available soon.`,
+      title: "Payment Coming Soon!",
+      description: `Payment for ${leadCount} leads (€${Math.ceil(leadCount / 100) * 10}) will be available soon.`,
       duration: 4000,
     });
   };
@@ -212,7 +212,7 @@ const Dashboard = () => {
           <UpgradeModal
             isOpen={showUpgradeModal}
             onClose={() => setShowUpgradeModal(false)}
-            onUpgrade={handleUpgrade}
+            onPurchase={handleUpgrade}
             hiddenLeadsCount={Math.max(0, searchResults.length - 20)}
           />
         </>

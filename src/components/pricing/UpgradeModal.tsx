@@ -3,89 +3,71 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { EnhancedButton } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star, Users, Mail, Phone, Download, History, Shield } from "lucide-react";
+import { Check, Crown, Users, Mail, Download, Shield, Calculator } from "lucide-react";
 
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpgrade: (plan: string) => void;
+  onPurchase: (leadCount: number) => void;
   hiddenLeadsCount?: number;
 }
 
-const UpgradeModal = ({ isOpen, onClose, onUpgrade, hiddenLeadsCount = 0 }: UpgradeModalProps) => {
-  const [selectedPlan, setSelectedPlan] = useState<string>("pro");
+const UpgradeModal = ({ isOpen, onClose, onPurchase, hiddenLeadsCount = 0 }: UpgradeModalProps) => {
+  const [selectedPackage, setSelectedPackage] = useState<number>(100);
 
-  const plans = [
+  const PRICE_PER_100_LEADS = 10; // €10 per 100 leads
+
+  const packages = [
     {
-      id: "starter",
-      name: "Starter",
-      price: 29,
-      period: "month",
-      description: "Perfect for small businesses and freelancers",
-      features: [
-        "Up to 500 leads per search",
-        "Email & phone contact info",
-        "Basic export (CSV, JSON)",
-        "Search history",
-        "Email support"
-      ],
-      icon: Zap,
-      popular: false
+      leads: 100,
+      price: 10,
+      popular: false,
+      description: "Perfect for small campaigns"
     },
     {
-      id: "pro",
-      name: "Professional",
-      price: 79,
-      period: "month",
-      description: "Ideal for growing teams and agencies",
-      features: [
-        "Unlimited leads per search",
-        "Complete contact information",
-        "Advanced export options",
-        "Lead tracking & CRM",
-        "Email automation tools",
-        "Priority support",
-        "Custom integrations"
-      ],
-      icon: Crown,
-      popular: true
+      leads: 500,
+      price: 45,
+      popular: true,
+      description: "Best value for growing businesses",
+      savings: 10
     },
     {
-      id: "enterprise",
-      name: "Enterprise",
-      price: 199,
-      period: "month",
-      description: "For large teams and organizations",
-      features: [
-        "Everything in Professional",
-        "White-label solution",
-        "API access",
-        "Custom data sources",
-        "Dedicated account manager",
-        "SLA guarantee",
-        "Advanced analytics"
-      ],
-      icon: Star,
-      popular: false
+      leads: 1000,
+      price: 80,
+      popular: false,
+      description: "Ideal for large campaigns",
+      savings: 20
     }
   ];
 
-  const handleUpgrade = () => {
-    onUpgrade(selectedPlan);
+  const calculateLeadsNeeded = () => {
+    return Math.ceil(hiddenLeadsCount / 100) * 100;
+  };
+
+  const handlePurchase = () => {
+    onPurchase(selectedPackage);
     onClose();
   };
 
+  const features = [
+    "Complete contact information (email, phone, website)",
+    "Instant CSV/JSON export",
+    "Save leads to your account",
+    "No monthly commitments",
+    "Pay only for what you use"
+  ];
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-center text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Upgrade to ProspectlyPro
+            Unlock Your Business Leads
           </DialogTitle>
           <DialogDescription className="text-center text-lg">
             {hiddenLeadsCount > 0 
-              ? `Unlock ${hiddenLeadsCount} more leads and get access to our complete lead generation suite`
-              : "Choose the perfect plan for your lead generation needs"
+              ? `Unlock ${hiddenLeadsCount} more leads for just €${Math.ceil(hiddenLeadsCount / 100) * PRICE_PER_100_LEADS}`
+              : "Pay only for the leads you need - no monthly subscriptions"
             }
           </DialogDescription>
         </DialogHeader>
@@ -96,32 +78,43 @@ const UpgradeModal = ({ isOpen, onClose, onUpgrade, hiddenLeadsCount = 0 }: Upgr
               <div className="flex items-center justify-center space-x-2 text-primary">
                 <Users className="h-5 w-5" />
                 <span className="font-semibold">
-                  {hiddenLeadsCount} premium leads are waiting to be unlocked!
+                  {hiddenLeadsCount} premium leads are ready to unlock
                 </span>
+              </div>
+              <div className="text-center mt-2 text-sm text-muted-foreground">
+                Minimum purchase: {calculateLeadsNeeded()} leads for €{Math.ceil(hiddenLeadsCount / 100) * PRICE_PER_100_LEADS}
               </div>
             </CardContent>
           </Card>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isSelected = selectedPlan === plan.id;
+          {packages.map((pkg) => {
+            const isSelected = selectedPackage === pkg.leads;
+            const pricePerLead = (pkg.price / pkg.leads).toFixed(3);
             
             return (
               <Card 
-                key={plan.id}
+                key={pkg.leads}
                 className={`relative transition-all cursor-pointer ${
                   isSelected 
                     ? 'border-2 border-primary shadow-strong' 
                     : 'border hover:shadow-medium'
-                } ${plan.popular ? 'ring-2 ring-primary/20' : ''}`}
-                onClick={() => setSelectedPlan(plan.id)}
+                } ${pkg.popular ? 'ring-2 ring-primary/20' : ''}`}
+                onClick={() => setSelectedPackage(pkg.leads)}
               >
-                {plan.popular && (
+                {pkg.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-primary text-primary-foreground px-4 py-1">
-                      Most Popular
+                      Best Value
+                    </Badge>
+                  </div>
+                )}
+
+                {pkg.savings && (
+                  <div className="absolute -top-2 -right-2">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                      Save €{pkg.savings}
                     </Badge>
                   </div>
                 )}
@@ -131,36 +124,68 @@ const UpgradeModal = ({ isOpen, onClose, onUpgrade, hiddenLeadsCount = 0 }: Upgr
                     <div className={`p-3 rounded-full ${
                       isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     }`}>
-                      <Icon className="h-6 w-6" />
+                      <Calculator className="h-6 w-6" />
                     </div>
                   </div>
                   
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{pkg.leads} Leads</CardTitle>
                   <div className="space-y-1">
-                    <div className="text-3xl font-bold">
-                      ${plan.price}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        /{plan.period}
-                      </span>
+                    <div className="text-3xl font-bold text-primary">
+                      €{pkg.price}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      €{pricePerLead} per lead
                     </div>
                   </div>
-                  <CardDescription>{plan.description}</CardDescription>
+                  <CardDescription className="text-sm">{pkg.description}</CardDescription>
                 </CardHeader>
                 
                 <CardContent>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
-                      </li>
-                    ))}
+                  <div className="text-center text-sm text-muted-foreground mb-4">
+                    Includes everything you need:
+                  </div>
+                  
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span>Email addresses</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span>Phone numbers</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span>Website URLs</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span>Business addresses</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span>Instant CSV export</span>
+                    </li>
                   </ul>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+
+        <Card className="bg-muted/30 mb-6">
+          <CardContent className="p-6">
+            <h3 className="font-semibold mb-4 text-center">What You Get With Every Purchase:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              {features.map((feature, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>{feature}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4 border-t">
           <EnhancedButton
@@ -175,11 +200,11 @@ const UpgradeModal = ({ isOpen, onClose, onUpgrade, hiddenLeadsCount = 0 }: Upgr
           <EnhancedButton
             variant="gradient"
             size="lg"
-            onClick={handleUpgrade}
+            onClick={handlePurchase}
             className="min-w-[200px] flex items-center space-x-2"
           >
             <Crown className="h-5 w-5" />
-            <span>Start {plans.find(p => p.id === selectedPlan)?.name} Plan</span>
+            <span>Get {selectedPackage} Leads - €{packages.find(p => p.leads === selectedPackage)?.price}</span>
           </EnhancedButton>
         </div>
 
@@ -187,14 +212,18 @@ const UpgradeModal = ({ isOpen, onClose, onUpgrade, hiddenLeadsCount = 0 }: Upgr
           <div className="flex items-center justify-center space-x-4 mb-2">
             <div className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
-              <span>30-day money-back guarantee</span>
+              <span>Secure payment</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Download className="h-4 w-4" />
+              <span>Instant download</span>
             </div>
             <div className="flex items-center space-x-1">
               <Mail className="h-4 w-4" />
-              <span>Cancel anytime</span>
+              <span>24/7 support</span>
             </div>
           </div>
-          <p>All plans include access to our lead database and contact information.</p>
+          <p>One-time payment • No recurring charges • Complete ownership of your leads</p>
         </div>
       </DialogContent>
     </Dialog>

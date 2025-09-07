@@ -417,11 +417,11 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                 className="flex items-center space-x-2"
               >
                 <Crown className="h-5 w-5" />
-                <span>Upgrade to ProspectlyPro</span>
+                <span>Get More Leads - €10/100 leads</span>
               </EnhancedButton>
               
               <div className="text-sm text-muted-foreground">
-                Starting at <span className="font-semibold text-primary">$29/month</span>
+                Pay per lead • No subscriptions
               </div>
             </div>
           </CardContent>
