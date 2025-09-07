@@ -10,7 +10,7 @@ import { BusinessLead } from "@/utils/FirecrawlService";
 import { ExportService } from "@/utils/ExportService";
 import { StorageService } from "@/utils/StorageService";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin, Instagram, Lock, Crown, AlertCircle, CheckCircle, Info } from "lucide-react";
+import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, Instagram, Lock, Crown, AlertCircle, CheckCircle, Info } from "lucide-react";
 
 interface FreemiumResultsTableProps {
   leads: BusinessLead[];
@@ -154,17 +154,6 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
       url = 'https://' + url;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const openLocation = (lead: BusinessLead) => {
-    if (lead.latitude && lead.longitude) {
-      const url = `https://www.openstreetmap.org/?mlat=${lead.latitude}&mlon=${lead.longitude}&zoom=16`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else if (lead.address) {
-      const searchQuery = encodeURIComponent(`${lead.name} ${lead.address}`);
-      const url = `https://www.google.com/maps/search/${searchQuery}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
   };
 
   const formatPhone = (phone: string) => {
@@ -517,20 +506,6 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                             <ExternalLink className="h-3 w-3" />
                           </EnhancedButton>
                         )}
-                        {(lead.latitude && lead.longitude) || lead.address ? (
-                          <EnhancedButton
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openLocation(lead);
-                            }}
-                            className="h-8 w-8 p-0"
-                            title="View on map"
-                          >
-                            <MapPin className="h-3 w-3" />
-                          </EnhancedButton>
-                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
