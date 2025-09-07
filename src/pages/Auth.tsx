@@ -51,8 +51,14 @@ const Auth = () => {
         });
       } else {
         toast({
-          title: "Confirmation email sent",
-          description: "Please check your email for the confirmation link.",
+          title: "✅ Confirmation email sent!",
+          description: (
+            <div className="space-y-1">
+              <p>Check your email (including spam folder) for the confirmation link.</p>
+              <p className="text-xs text-muted-foreground">It may take a few minutes to arrive.</p>
+            </div>
+          ),
+          duration: 6000,
         });
       }
     } catch (error) {
@@ -136,8 +142,14 @@ const Auth = () => {
         }
       } else {
         toast({
-          title: "Account created!",
-          description: "Please check your email to confirm your account before signing in.",
+          title: "Account created successfully! 🎉",
+          description: (
+            <div className="space-y-2">
+              <p>Please check your email (including spam folder) for a confirmation link.</p>
+              <p className="text-xs text-blue-600">💡 If you don't receive an email in 5 minutes, try the "Resend confirmation" button below.</p>
+            </div>
+          ),
+          duration: 8000,
         });
         // Switch to sign in mode after successful registration
         setIsSignUp(false);
@@ -201,15 +213,27 @@ const Auth = () => {
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           toast({
-            title: "Invalid credentials",
-            description: "Please check your email and password and try again.",
+            title: "Sign in failed",
+            description: (
+              <div className="space-y-2">
+                <p>Please check your email and password.</p>
+                <p className="text-xs text-amber-600">⚠️ If you just signed up, make sure to confirm your email first!</p>
+              </div>
+            ),
             variant: "destructive",
+            duration: 6000,
           });
         } else if (error.message.includes("Email not confirmed")) {
           toast({
             title: "Email not confirmed",
-            description: "Please check your email and click the confirmation link before signing in.",
+            description: (
+              <div className="space-y-2">
+                <p>Please check your email and click the confirmation link.</p>
+                <p className="text-xs text-blue-600">💡 Use the "Resend confirmation" button below if needed.</p>
+              </div>
+            ),
             variant: "destructive",
+            duration: 8000,
           });
         } else {
           toast({
@@ -434,18 +458,26 @@ const Auth = () => {
               )}
               
               {!isSignUp && !isForgotPassword && (
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Haven't received your confirmation email?
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleResendConfirmation}
-                    disabled={resendLoading}
-                    className="text-xs text-primary hover:underline disabled:opacity-50"
-                  >
-                    {resendLoading ? "Sending..." : "Resend confirmation email"}
-                  </button>
+                <div className="pt-4 border-t bg-muted/30 rounded-lg p-3">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      🚨 <strong>Not receiving emails?</strong> Check your spam folder first!
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Haven't received your confirmation email?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resendLoading || !formData.email}
+                      className="text-xs text-primary hover:underline disabled:opacity-50 font-medium"
+                    >
+                      {resendLoading ? "Sending..." : "🔄 Resend confirmation email"}
+                    </button>
+                    {!formData.email && (
+                      <p className="text-xs text-red-500 mt-1">Enter your email above first</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
