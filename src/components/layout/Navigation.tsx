@@ -89,7 +89,11 @@ const Navigation = () => {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
-                        onClick={signOut}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          console.log('🖱️ Sign out clicked');
+                          signOut();
+                        }}
                         className="flex items-center space-x-2 cursor-pointer text-destructive focus:text-destructive"
                       >
                         <LogOut className="h-4 w-4" />
