@@ -6,11 +6,15 @@ import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Users, BarChart3 } from "lucide-react";
 import QuickActions from "@/components/search/QuickActions";
 import { ExpandSearchDialog } from "@/components/search/ExpandSearchDialog";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { useToast } from "@/hooks/use-toast";
+import LeadManagement from "@/components/crm/LeadManagement";
+import PipelineView from "@/components/crm/PipelineView";
 
 const Dashboard = () => {
   const { user, isLoading } = useAuth();
@@ -171,6 +175,24 @@ const Dashboard = () => {
         </p>
       </div>
 
+      <Tabs defaultValue="search" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="search" className="gap-2">
+            <Search className="h-4 w-4" />
+            Search Leads
+          </TabsTrigger>
+          <TabsTrigger value="manage" className="gap-2">
+            <Users className="h-4 w-4" />
+            Manage Leads
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Sales Pipeline
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="search" className="space-y-8">
+
       {/* Quick Actions */}
       <QuickActions onQuickSearch={handleQuickSearch} />
 
@@ -225,22 +247,32 @@ const Dashboard = () => {
           />
         </>
       ) : (
-        <Card className="border-0 shadow-soft">
-          <CardContent className="p-12 text-center">
-            <div className="space-y-4">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <Search className="h-8 w-8 text-muted-foreground" />
+          <Card className="border-0 shadow-soft">
+            <CardContent className="p-12 text-center">
+              <div className="space-y-4">
+                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
+                  <p className="text-muted-foreground">
+                    Use the search form above or try one of the quick actions to get started.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
-                <p className="text-muted-foreground">
-                  Use the search form above or try one of the quick actions to get started.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
+        </TabsContent>
+
+        <TabsContent value="manage">
+          <LeadManagement />
+        </TabsContent>
+
+        <TabsContent value="pipeline">
+          <PipelineView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
