@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import QuickActions from "@/components/search/QuickActions";
+import { ExpandSearchDialog } from "@/components/search/ExpandSearchDialog";
 
 const Dashboard = () => {
   const { user, isLoading } = useAuth();
@@ -18,16 +19,19 @@ const Dashboard = () => {
     searchTime: number;
     creditsUsed: number;
   } | null>(null);
+  const [showExpandDialog, setShowExpandDialog] = useState(false);
+  const [currentSearchParams, setCurrentSearchParams] = useState<{location: string, businessType: string} | null>(null);
   const searchFormRef = useRef<SearchFormRef>(null);
 
   // Remove auth requirement - allow both authenticated and guest users
 
-  const handleSearchResults = (results: BusinessLead[]) => {
+  const handleSearchResults = (results: BusinessLead[], location?: string, businessType?: string, canExpandSearch?: boolean) => {
     console.log('📈 Dashboard received results:', results?.length, 'leads');
     if (results?.length > 0) {
       console.log('📋 Sample result:', results[0]);
     }
     setSearchResults(results);
+    setCurrentSearchParams(location && businessType ? { location, businessType } : null);
     
     const searchTime = 1.5; // Estimate since we don't track this in SecureSearchForm
     setSearchStats({
@@ -35,6 +39,11 @@ const Dashboard = () => {
       searchTime,
       creditsUsed: Math.ceil(results.length / 10) // Estimate
     });
+    
+    // Show expand dialog if we can get more results
+    if (canExpandSearch && results.length >= 400) {
+      setShowExpandDialog(true);
+    }
     
     console.log('✅ Dashboard state updated with', results.length, 'results');
 
@@ -97,6 +106,24 @@ const Dashboard = () => {
     }
   };
 
+  const handleExpandSearch = async () => {
+    setShowExpandDialog(false);
+    if (currentSearchParams && searchFormRef.current) {
+      // Show loading toast
+      const { toast } = await import('@/hooks/use-toast');
+      toast({
+        title: "Expanding Search Area",
+        description: "Searching wider area for more leads...",
+      });
+      
+      // Trigger a new search with expanded parameters
+      searchFormRef.current.triggerSearch(
+        currentSearchParams.location, 
+        currentSearchParams.businessType
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
@@ -154,7 +181,17 @@ const Dashboard = () => {
       )}
 
       {searchResults.length > 0 ? (
-        <ResultsTable leads={searchResults} />
+        <>
+          <ResultsTable leads={searchResults} />
+          <ExpandSearchDialog
+            open={showExpandDialog}
+            onOpenChange={setShowExpandDialog}
+            onExpandSearch={handleExpandSearch}
+            currentCount={searchResults.length}
+            location={currentSearchParams?.location || ''}
+            businessType={currentSearchParams?.businessType || ''}
+          />
+        </>
       ) : (
         <Card className="border-0 shadow-soft">
           <CardContent className="p-12 text-center">

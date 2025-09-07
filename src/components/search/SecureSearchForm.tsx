@@ -11,7 +11,7 @@ import { LocationSelector, getLocationSearchTerms } from './LocationSelector';
 import { SearchProgressModal } from './SearchProgressModal';
 
 interface SecureSearchFormProps {
-  onResults: (results: BusinessLead[]) => void;
+  onResults: (results: BusinessLead[], location?: string, businessType?: string, canExpandSearch?: boolean) => void;
 }
 
 export interface SearchFormRef {
@@ -122,7 +122,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         console.log('📊 Sample lead:', foundLeads[0]);
         
         // Call onResults to update the parent component
-        onResults(foundLeads);
+        onResults(foundLeads, finalLocation, finalBusinessType, data.canExpandSearch);
         
         // Save to search history only for authenticated users
         if (user) {

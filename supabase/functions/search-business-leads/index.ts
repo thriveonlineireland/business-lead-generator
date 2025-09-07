@@ -48,7 +48,7 @@ serve(async (req) => {
     console.log('📍 Search parameters:', {
       location,
       businessType,
-      maxResults: 100,
+      maxResults: 500, // Increased limit
       keywordCount: businessKeywords?.length || 0,
       locationTermCount: locationTerms?.length || 0
     });
@@ -76,10 +76,10 @@ serve(async (req) => {
     }
     
     console.log(`🎯 Search mode: ${userId ? 'authenticated' : 'guest'}`);
-    console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: 100 results`);
+    console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: 500 results`);
 
     // Use free OpenStreetMap API
-    const leads = await searchOpenStreetMap(location, businessType, 100);
+    const leads = await searchOpenStreetMap(location, businessType, 500);
     
     console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
@@ -120,6 +120,7 @@ serve(async (req) => {
         success: true,
         data: leads,
         totalFound: leads.length,
+        canExpandSearch: leads.length >= 450, // Suggest expanding if we're close to limit
         message: `Found ${leads.length} business leads using free data sources`
       }),
       { 
@@ -182,8 +183,8 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
     console.log(`✅ Found coordinates: ${lat}, ${lon}`);
     
     // Create a reasonable search radius around the location
-    const latRange = 0.05; // approximately 5km
-    const lonRange = 0.05;
+    const latRange = 0.08; // approximately 8km - expanded range
+    const lonRange = 0.08;
     const minLat = parseFloat(lat) - latRange;
     const maxLat = parseFloat(lat) + latRange;
     const minLon = parseFloat(lon) - lonRange;
