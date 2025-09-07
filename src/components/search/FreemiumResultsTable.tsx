@@ -23,25 +23,7 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
   const [sortBy, setSortBy] = useState("name");
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
 
-  // Show 10% of total results as freemium preview (minimum 5, maximum 50)
-  // But prioritize leads with complete contact information
-  const freeLeadLimit = Math.max(5, Math.min(50, Math.floor(leads.length * 0.1)));
-  
-  // Sort all leads by data completeness (complete leads first)
-  const leadsByCompleteness = [...leads].sort((a, b) => {
-    const scoreA = getDataCompleteness(a).score;
-    const scoreB = getDataCompleteness(b).score;
-    if (scoreA !== scoreB) {
-      return scoreB - scoreA; // Higher completeness first
-    }
-    // If same completeness, sort alphabetically
-    return a.name.localeCompare(b.name);
-  });
-  
-  const freeLeads = leadsByCompleteness.slice(0, freeLeadLimit);
-  const hiddenLeadsCount = Math.max(0, leads.length - freeLeadLimit);
-
-  // Calculate data completeness stats
+  // Calculate data completeness stats - define this first so we can use it below
   const getDataCompleteness = (lead: BusinessLead) => {
     const hasEmail = lead.email && lead.email.trim() !== '' && lead.email.includes('@');
     const hasPhone = lead.phone && lead.phone.trim() !== '' && lead.phone.length >= 10;
@@ -59,6 +41,24 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
       ].filter(Boolean)
     };
   };
+
+  // Show 10% of total results as freemium preview (minimum 5, maximum 50)
+  // But prioritize leads with complete contact information
+  const freeLeadLimit = Math.max(5, Math.min(50, Math.floor(leads.length * 0.1)));
+  
+  // Sort all leads by data completeness (complete leads first)
+  const leadsByCompleteness = [...leads].sort((a, b) => {
+    const scoreA = getDataCompleteness(a).score;
+    const scoreB = getDataCompleteness(b).score;
+    if (scoreA !== scoreB) {
+      return scoreB - scoreA; // Higher completeness first
+    }
+    // If same completeness, sort alphabetically
+    return a.name.localeCompare(b.name);
+  });
+  
+  const freeLeads = leadsByCompleteness.slice(0, freeLeadLimit);
+  const hiddenLeadsCount = Math.max(0, leads.length - freeLeadLimit);
 
   const dataQualityStats = {
     complete: freeLeads.filter(lead => getDataCompleteness(lead).score === 3).length,
