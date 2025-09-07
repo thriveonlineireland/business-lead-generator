@@ -2,16 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SecureSearchForm, SearchFormRef } from "@/components/search/SecureSearchForm";
-import ResultsTable from "@/components/search/ResultsTable";
+import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import QuickActions from "@/components/search/QuickActions";
 import { ExpandSearchDialog } from "@/components/search/ExpandSearchDialog";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, isLoading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [searchResults, setSearchResults] = useState<BusinessLead[]>([]);
   const [searchStats, setSearchStats] = useState<{
@@ -21,6 +24,7 @@ const Dashboard = () => {
   } | null>(null);
   const [showExpandDialog, setShowExpandDialog] = useState(false);
   const [currentSearchParams, setCurrentSearchParams] = useState<{location: string, businessType: string} | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const searchFormRef = useRef<SearchFormRef>(null);
 
   // Remove auth requirement - allow both authenticated and guest users
@@ -125,6 +129,16 @@ const Dashboard = () => {
     }
   };
 
+  const handleUpgrade = (plan: string) => {
+    console.log('User selected plan:', plan);
+    // TODO: Implement Stripe checkout
+    toast({
+      title: "Upgrade Coming Soon!",
+      description: `Payment integration for ${plan} plan will be available soon.`,
+      duration: 4000,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
@@ -183,7 +197,10 @@ const Dashboard = () => {
 
       {searchResults.length > 0 ? (
         <>
-          <ResultsTable leads={searchResults} />
+          <FreemiumResultsTable 
+            leads={searchResults} 
+            onUpgrade={() => setShowUpgradeModal(true)}
+          />
           <ExpandSearchDialog
             open={showExpandDialog}
             onOpenChange={setShowExpandDialog}
@@ -191,6 +208,12 @@ const Dashboard = () => {
             currentCount={searchResults.length}
             location={currentSearchParams?.location || ''}
             businessType={currentSearchParams?.businessType || ''}
+          />
+          <UpgradeModal
+            isOpen={showUpgradeModal}
+            onClose={() => setShowUpgradeModal(false)}
+            onUpgrade={handleUpgrade}
+            hiddenLeadsCount={Math.max(0, searchResults.length - 20)}
           />
         </>
       ) : (
