@@ -108,11 +108,12 @@ const Dashboard = () => {
       }
       
       if (enrichedLeads.length > 0) {
+        const { FreeLeadEnrichmentService } = await import('@/utils/FreeLeadEnrichmentService');
+        
         // Update only the leads that were actually improved
         setSearchResults(currentResults => {
           return currentResults.map(lead => {
             const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
-            const { FreeLeadEnrichmentService } = require('@/utils/FreeLeadEnrichmentService');
             return enrichedLead && FreeLeadEnrichmentService.hasImprovedData(lead, enrichedLead) 
               ? enrichedLead 
               : lead;
@@ -121,7 +122,7 @@ const Dashboard = () => {
 
         const improvedCount = enrichedLeads.filter(enriched => {
           const original = leads.find(l => l.name === enriched.name && l.website === enriched.website);
-          return original && require('@/utils/FreeLeadEnrichmentService').FreeLeadEnrichmentService.hasImprovedData(original, enriched);
+          return original && FreeLeadEnrichmentService.hasImprovedData(original, enriched);
         }).length;
 
         if (improvedCount > 0) {
