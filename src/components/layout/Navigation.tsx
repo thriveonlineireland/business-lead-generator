@@ -28,7 +28,7 @@ const Navigation = () => {
           <Link to="/" className="flex items-center space-x-2 group">
             <Building2 className="h-8 w-8 text-primary group-hover:text-accent transition-colors" />
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              LeadFinder Pro
+              ProspectlyPro
             </span>
           </Link>
 
