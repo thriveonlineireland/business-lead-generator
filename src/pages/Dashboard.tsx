@@ -77,39 +77,72 @@ const Dashboard = () => {
       return;
     }
 
-    console.log(`🔄 Starting background enrichment for ${leadsToEnrich.length} leads...`);
+    // Limit enrichment to prevent timeouts
+    const maxLeadsToEnrich = Math.min(leadsToEnrich.length, 5);
+    const limitedLeads = leadsToEnrich.slice(0, maxLeadsToEnrich);
+
+    console.log(`🔄 Starting background enrichment for ${maxLeadsToEnrich} leads (limited to prevent timeouts)...`);
     
     try {
-      // Use smaller batch size for faster initial results
-      const { FreeLeadEnrichmentService } = await import('@/utils/FreeLeadEnrichmentService');
-      const enrichedLeads = await FreeLeadEnrichmentService.enrichLeads(leadsToEnrich, 1);
+      // Process leads one by one with timeout protection
+      const enrichedLeads: BusinessLead[] = [];
       
-      // Update only the leads that were actually improved
-      setSearchResults(currentResults => {
-        const updatedResults = currentResults.map(lead => {
-          const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
-          return enrichedLead && FreeLeadEnrichmentService.hasImprovedData(lead, enrichedLead) 
-            ? enrichedLead 
-            : lead;
+      for (const lead of limitedLeads) {
+        try {
+          // Set a strict timeout for each lead
+          const timeoutPromise = new Promise<BusinessLead>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 5000)
+          );
+          
+          const { FreeLeadEnrichmentService } = await import('@/utils/FreeLeadEnrichmentService');
+          const enrichmentPromise = FreeLeadEnrichmentService.enrichLeads([lead], 1);
+          
+          const result = await Promise.race([enrichmentPromise, timeoutPromise]);
+          if (result && Array.isArray(result) && result.length > 0) {
+            enrichedLeads.push(result[0]);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Enrichment failed for ${lead.name}:`, error.message);
+          // Continue with next lead
+        }
+      }
+      
+      if (enrichedLeads.length > 0) {
+        // Update only the leads that were actually improved
+        setSearchResults(currentResults => {
+          return currentResults.map(lead => {
+            const enrichedLead = enrichedLeads.find(e => e.name === lead.name && e.website === lead.website);
+            const { FreeLeadEnrichmentService } = require('@/utils/FreeLeadEnrichmentService');
+            return enrichedLead && FreeLeadEnrichmentService.hasImprovedData(lead, enrichedLead) 
+              ? enrichedLead 
+              : lead;
+          });
         });
-        
-        return updatedResults;
-      });
 
-      // Count improvements
-      const improvedCount = enrichedLeads.filter(enriched => {
-        const original = leads.find(l => l.name === enriched.name && l.website === enriched.website);
-        return original && FreeLeadEnrichmentService.hasImprovedData(original, enriched);
-      }).length;
+        const improvedCount = enrichedLeads.filter(enriched => {
+          const original = leads.find(l => l.name === enriched.name && l.website === enriched.website);
+          return original && require('@/utils/FreeLeadEnrichmentService').FreeLeadEnrichmentService.hasImprovedData(original, enriched);
+        }).length;
 
-      if (improvedCount > 0) {
-        console.log(`✅ Enhanced ${improvedCount} leads with additional contact information`);
+        if (improvedCount > 0) {
+          console.log(`✅ Enhanced ${improvedCount} leads with additional contact information`);
+          toast({
+            title: "Leads Enhanced",
+            description: `Found additional contact information for ${improvedCount} leads`,
+            duration: 3000,
+          });
+        }
+      }
+
+      // Show info about remaining leads
+      if (leadsToEnrich.length > maxLeadsToEnrich) {
         toast({
-          title: "Leads Enhanced",
-          description: `Found additional contact information for ${improvedCount} leads`,
-          duration: 3000,
+          title: "Partial Enhancement",
+          description: `Enhanced ${maxLeadsToEnrich} of ${leadsToEnrich.length} leads to prevent timeouts. Search again to enhance more.`,
+          duration: 5000,
         });
       }
+      
     } catch (error) {
       console.error('❌ Background enrichment failed:', error);
       // Don't show error toast for background process

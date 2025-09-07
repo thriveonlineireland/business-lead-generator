@@ -44,7 +44,7 @@ export class FreeLeadEnrichmentService {
   }
 
   /**
-   * Enriches a single lead using free methods
+   * Enriches a single lead using free methods - with strict timeout
    */
   private static async enrichSingleLead(lead: BusinessLead): Promise<BusinessLead> {
     try {
@@ -52,28 +52,14 @@ export class FreeLeadEnrichmentService {
       
       let enrichedLead = { ...lead };
 
-      // 1. Try to find contact info from existing website (if available)
-      if (lead.website && (!lead.email || !lead.phone)) {
-        const websiteData = await this.extractFromWebsite(lead.website);
-        enrichedLead = this.mergeContactData(enrichedLead, websiteData);
-      }
+      // Set overall timeout for this lead
+      const timeoutPromise = new Promise<BusinessLead>((_, reject) => 
+        setTimeout(() => reject(new Error('Lead enrichment timeout')), 4000)
+      );
 
-      // 2. Search for business using free search engines
-      if (!lead.email || !lead.phone || !lead.website) {
-        const searchData = await this.searchBusinessFree(lead.name, lead.address);
-        enrichedLead = this.mergeContactData(enrichedLead, searchData);
-      }
-
-      // 3. Try to construct website from business name
-      if (!enrichedLead.website) {
-        const guessedWebsite = await this.guessBusinessWebsite(lead.name);
-        if (guessedWebsite) {
-          enrichedLead.website = guessedWebsite;
-          // Try to extract info from guessed website
-          const websiteData = await this.extractFromWebsite(guessedWebsite);
-          enrichedLead = this.mergeContactData(enrichedLead, websiteData);
-        }
-      }
+      const enrichmentPromise = this.performEnrichment(lead);
+      
+      enrichedLead = await Promise.race([enrichmentPromise, timeoutPromise]);
 
       console.log(`✅ FREE enriched ${lead.name}:`, {
         originalData: { email: lead.email, phone: lead.phone, website: lead.website },
@@ -83,13 +69,48 @@ export class FreeLeadEnrichmentService {
       return enrichedLead;
 
     } catch (error) {
-      console.error(`❌ Error in FREE enrichment for ${lead.name}:`, error);
-      return lead;
+      if (error.message.includes('timeout')) {
+        console.warn(`⏰ Timeout enriching ${lead.name}`);
+      } else {
+        console.error(`❌ Error in FREE enrichment for ${lead.name}:`, error);
+      }
+      return lead; // Return original on any error
     }
   }
 
   /**
-   * Extract contact info from website using free CORS proxy - with better error handling
+   * Performs the actual enrichment logic
+   */
+  private static async performEnrichment(lead: BusinessLead): Promise<BusinessLead> {
+    let enrichedLead = { ...lead };
+
+    // 1. Try to find contact info from existing website (if available)
+    if (lead.website && (!lead.email || !lead.phone)) {
+      const websiteData = await this.extractFromWebsite(lead.website);
+      enrichedLead = this.mergeContactData(enrichedLead, websiteData);
+      
+      // If we found contact info, return early to save time
+      if (websiteData.email || websiteData.phone) {
+        return enrichedLead;
+      }
+    }
+
+    // 2. Only try website guessing if we still need contact info and don't have a website
+    if (!enrichedLead.website && (!enrichedLead.email || !enrichedLead.phone)) {
+      const guessedWebsite = await this.guessBusinessWebsite(lead.name);
+      if (guessedWebsite) {
+        enrichedLead.website = guessedWebsite;
+        // Try to extract info from guessed website
+        const websiteData = await this.extractFromWebsite(guessedWebsite);
+        enrichedLead = this.mergeContactData(enrichedLead, websiteData);
+      }
+    }
+
+    return enrichedLead;
+  }
+
+  /**
+   * Extract contact info from website using free CORS proxy - optimized for speed
    */
   private static async extractFromWebsite(website: string): Promise<Partial<BusinessLead>> {
     try {
@@ -97,7 +118,7 @@ export class FreeLeadEnrichmentService {
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(website)}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); // Reduced timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced to 3s
       
       const response = await fetch(proxyUrl, {
         signal: controller.signal,
@@ -121,7 +142,9 @@ export class FreeLeadEnrichmentService {
         return {};
       }
 
-      return this.extractContactInfoFromText(content);
+      // Limit content size to prevent timeout
+      const limitedContent = content.substring(0, 50000); // Limit to first 50k chars
+      return this.extractContactInfoFromText(limitedContent);
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -179,7 +202,7 @@ export class FreeLeadEnrichmentService {
   }
 
   /**
-   * Guess business website based on name
+   * Guess business website based on name - simplified version
    */
   private static async guessBusinessWebsite(businessName: string): Promise<string | null> {
     try {
@@ -188,28 +211,26 @@ export class FreeLeadEnrichmentService {
         .toLowerCase()
         .replace(/[^\w\s]/g, '')
         .replace(/\s+/g, '')
-        .replace(/\b(llc|inc|corp|company|ltd|limited|restaurant|cafe|coffee|shop|store)\b/g, '');
+        .replace(/\b(llc|inc|corp|company|ltd|limited|restaurant|cafe|coffee|shop|store|bar|pub)\b/g, '');
 
+      // Only try the most common domain patterns
       const possibleDomains = [
         `https://www.${cleanName}.com`,
-        `https://www.${cleanName}.ie`,
-        `https://www.${cleanName}.co.uk`,
-        `https://${cleanName}.com`,
-        `https://${cleanName}.ie`
+        `https://www.${cleanName}.ie`
       ];
 
-      // Test each domain with a quick HEAD request
-      for (const domain of possibleDomains) {
+      // Test only first 2 domains to save time
+      for (const domain of possibleDomains.slice(0, 2)) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // Very short timeout
           
           // Use CORS proxy to test if website exists
           const testResponse = await fetch(
             `https://api.allorigins.win/get?url=${encodeURIComponent(domain)}`,
             { 
               signal: controller.signal,
-              method: 'HEAD' // Faster than GET
+              method: 'GET' // Changed from HEAD to GET for better compatibility
             }
           );
           
@@ -224,7 +245,7 @@ export class FreeLeadEnrichmentService {
           // Continue to next domain
         }
         
-        await this.delay(500); // Small delay between tests
+        await this.delay(200); // Very small delay between tests
       }
 
       return null;
