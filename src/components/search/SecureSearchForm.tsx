@@ -93,10 +93,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       console.log('📡 Calling edge function with params:', searchParams);
       
       const result = await supabase.functions.invoke('search-business-leads', {
-        body: searchParams,
-        headers: user ? undefined : {
-          'Authorization': 'Bearer guest'
-        }
+        body: searchParams
       });
       
       const { data, error } = result;
@@ -124,7 +121,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         // Call onResults to update the parent component
         onResults(foundLeads, finalLocation, finalBusinessType, data.canExpandSearch);
         
-        // Save to search history only for authenticated users
+        // Save to search history for authenticated users
         if (user) {
           console.log('💾 Saving search history for authenticated user');
           await supabase.from('search_history').insert({
@@ -186,7 +183,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
             Business Lead Search
           </CardTitle>
           <CardDescription>
-            Try our business lead search! {!user && "Sign in to save your search history and results."}
+            Search for business leads and save your results to your account.
           </CardDescription>
         </CardHeader>
         <CardContent>

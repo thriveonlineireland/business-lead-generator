@@ -27,7 +27,12 @@ const Dashboard = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const searchFormRef = useRef<SearchFormRef>(null);
 
-  // Remove auth requirement - allow both authenticated and guest users
+  // Redirect unauthenticated users to auth page
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, isLoading, navigate]);
 
   const handleSearchResults = (results: BusinessLead[], location?: string, businessType?: string, canExpandSearch?: boolean) => {
     console.log('📈 Dashboard received results:', results?.length, 'leads');
@@ -152,14 +157,17 @@ const Dashboard = () => {
     );
   }
 
-  // Dashboard now works for both authenticated and guest users
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-8">
       <div>
         <h1 className="text-3xl font-bold mb-2">Business Lead Dashboard</h1>
         <p className="text-muted-foreground">
-          {user ? 'Search and manage your business leads with our secure platform' : 'Try our lead search - sign in to save your results'}
+          Search and manage your business leads with our secure platform
         </p>
       </div>
 
