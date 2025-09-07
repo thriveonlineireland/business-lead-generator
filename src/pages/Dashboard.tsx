@@ -280,7 +280,7 @@ const Dashboard = () => {
             isOpen={showUpgradeModal}
             onClose={() => setShowUpgradeModal(false)}
             onPurchase={handleUpgrade}
-            hiddenLeadsCount={Math.max(0, searchResults.length - 20)}
+            hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(50, Math.floor(searchResults.length * 0.1))))}
           />
         </>
       ) : (

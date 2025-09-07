@@ -17,16 +17,16 @@ interface FreemiumResultsTableProps {
   onUpgrade: () => void;
 }
 
-const FREE_LEAD_LIMIT = 20;
-
 const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
 
-  const freeLeads = leads.slice(0, FREE_LEAD_LIMIT);
-  const hiddenLeadsCount = Math.max(0, leads.length - FREE_LEAD_LIMIT);
+  // Show 10% of total results as freemium preview (minimum 5, maximum 50)
+  const freeLeadLimit = Math.max(5, Math.min(50, Math.floor(leads.length * 0.1)));
+  const freeLeads = leads.slice(0, freeLeadLimit);
+  const hiddenLeadsCount = Math.max(0, leads.length - freeLeadLimit);
 
   // Calculate data completeness stats
   const getDataCompleteness = (lead: BusinessLead) => {
@@ -212,10 +212,10 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
               <CardTitle className="flex items-center space-x-2">
                 <Building className="h-5 w-5 text-primary" />
                 <span>Search Results</span>
-                <Badge variant="secondary">{sortedLeads.length} of {leads.length} leads</Badge>
+                <Badge variant="secondary">{freeLeads.length} of {leads.length} leads</Badge>
               </CardTitle>
               <CardDescription>
-                {selectedLeads.size > 0 
+                Showing 10% of total results ({freeLeads.length}/{leads.length}). {selectedLeads.size > 0 
                   ? `${selectedLeads.size} leads selected`
                   : "Click on rows to select leads for export"
                 }
@@ -551,7 +551,7 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
             <h3 className="text-2xl font-bold mb-2">Unlock {hiddenLeadsCount} More High-Quality Leads</h3>
             <p className="text-lg text-muted-foreground mb-6">
               We found <span className="font-semibold text-primary">{leads.length} total leads</span> for your search. 
-              Upgrade to access all leads with complete contact information.
+              You're seeing 10% as a preview. Upgrade to access all leads with complete contact information.
             </p>
             
             <div className="bg-card/50 rounded-lg p-6 mb-6 backdrop-blur-sm">
@@ -579,7 +579,7 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                 className="flex items-center space-x-2"
               >
                 <Crown className="h-5 w-5" />
-                <span>Get More Leads - €10/100 leads</span>
+                <span>Get All {leads.length} Leads - €{Math.ceil(leads.length / 100) * 10}</span>
               </EnhancedButton>
               
               <div className="text-sm text-muted-foreground">
