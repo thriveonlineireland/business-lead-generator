@@ -196,82 +196,95 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
       
       console.log(`🔍 Searching for ${osmType} businesses`);
       
-      // Create Overpass query for both amenity and shop tags
-      const overpassQuery = `
-        [out:json][timeout:25];
+      // Create multiple queries with different timeouts and larger result sets
+      const overpassQueries = [
+        // Primary query
+        `[out:json][timeout:30];
         (
           nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
           nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
         );
-        out center meta;
-      `;
+        out center meta;`,
+        // Secondary query with different approach
+        `[out:json][timeout:30];
+        (
+          nwr["amenity"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["shop"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+          nwr["cuisine"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+        );
+        out center meta;`
+      ];
       
-      const overpassUrl = 'https://overpass-api.de/api/interpreter';
-      
-      try {
-        const response = await fetch(overpassUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'BusinessLeadSearchApp/1.0'
-          },
-          body: `data=${encodeURIComponent(overpassQuery)}`
-        });
+      for (const overpassQuery of overpassQueries) {
+        if (leads.length >= maxResults) break;
         
-        if (!response.ok) {
-          console.error(`❌ Overpass API error: ${response.status}`);
-          continue;
-        }
+        const overpassUrl = 'https://overpass-api.de/api/interpreter';
         
-        const data = await response.json();
-        console.log(`📊 Found ${data.elements?.length || 0} results for ${osmType}`);
-        
-        if (data.elements) {
-          for (const element of data.elements) {
-            if (leads.length >= maxResults) break;
-            
-            const tags = element.tags || {};
-            const name = tags.name || tags.brand || `${osmType} Business`;
-            
-            // Skip if we already have this business (check by name and location)
-            if (leads.some(lead => 
-              lead.name.toLowerCase() === name.toLowerCase() && 
-              Math.abs((lead.latitude || 0) - (element.lat || element.center?.lat || 0)) < 0.001
-            )) {
-              continue;
-            }
-            
-            const address = formatAddress(tags);
-            const lat = element.lat || element.center?.lat;
-            const lon = element.lon || element.center?.lon;
-            
-            const lead: BusinessLead = {
-              name,
-              address,
-              phone: tags.phone || tags['contact:phone'] || undefined,
-              website: tags.website || tags['contact:website'] || undefined,
-              category: tags.amenity || tags.shop || osmType,
-              latitude: lat,
-              longitude: lon,
-              source: 'OpenStreetMap (Free)'
-            };
-            
-            leads.push(lead);
-            console.log(`✅ Added: ${name} at ${address}`);
+        try {
+          const response = await fetch(overpassUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'BusinessLeadSearchApp/1.0'
+            },
+            body: `data=${encodeURIComponent(overpassQuery)}`
+          });
+          
+          if (!response.ok) {
+            console.error(`❌ Overpass API error: ${response.status}`);
+            continue;
           }
+          
+          const data = await response.json();
+          console.log(`📊 Found ${data.elements?.length || 0} results for ${osmType} query`);
+          
+          if (data.elements) {
+            for (const element of data.elements) {
+              if (leads.length >= maxResults) break;
+              
+              const tags = element.tags || {};
+              const name = tags.name || tags.brand || `${osmType} Business`;
+              
+              // Skip if we already have this business (check by name and location)
+              if (leads.some(lead => 
+                lead.name.toLowerCase() === name.toLowerCase() && 
+                Math.abs((lead.latitude || 0) - (element.lat || element.center?.lat || 0)) < 0.001
+              )) {
+                continue;
+              }
+              
+              const address = formatAddress(tags);
+              const lat = element.lat || element.center?.lat;
+              const lon = element.lon || element.center?.lon;
+              
+              const lead: BusinessLead = {
+                name,
+                address,
+                phone: tags.phone || tags['contact:phone'] || undefined,
+                website: tags.website || tags['contact:website'] || undefined,
+                category: tags.amenity || tags.shop || tags.cuisine || osmType,
+                latitude: lat,
+                longitude: lon,
+                source: 'OpenStreetMap (Free)'
+              };
+              
+              leads.push(lead);
+              console.log(`✅ Added: ${name} at ${address}`);
+            }
+          }
+          
+          // Be respectful to free APIs - add delay between requests
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (error) {
+          console.error(`❌ Error searching for ${osmType}:`, error);
         }
-        
-        // Be respectful to free APIs - add delay between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-      } catch (error) {
-        console.error(`❌ Error searching for ${osmType}:`, error);
       }
     }
     
     // If we didn't find many results, try a broader search with generic terms
-    if (leads.length < 20) {
-      console.log(`🔄 Trying broader search for more results`);
+    if (leads.length < 100) {
+      console.log(`🔄 Only found ${leads.length} results. Trying broader search for more results`);
       await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
     }
     
@@ -301,11 +314,11 @@ async function searchBroaderCategories(
     if (existingLeads.length >= maxResults) break;
     
     const overpassQuery = `
-      [out:json][timeout:20];
+      [out:json][timeout:30];
       (
         nwr["${category}"](${minLat},${minLon},${maxLat},${maxLon});
       );
-      out center meta;
+      out center meta 1000;
     `;
     
     try {
