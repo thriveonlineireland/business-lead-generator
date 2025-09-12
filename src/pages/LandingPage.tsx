@@ -178,87 +178,67 @@ const LandingPage = () => {
     <div className="min-h-screen bg-gradient-secondary">
       {/* Desktop Hero Section */}
       <section className="relative py-20 px-4">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <Badge variant="secondary" className="animate-fade-in">
-                Professional Lead Generation Tool
-              </Badge>
-              
-              <div className="space-y-6">
-                <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
-                  Find <span className="bg-gradient-primary bg-clip-text text-transparent">Business Leads</span>
-                  <br />
-                  Like Never Before
-                </h1>
-                
-                <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
-                  Discover local businesses, extract contact information, and build your prospect database 
-                  with our powerful lead generation tool. Search multiple directories simultaneously and 
-                  export results instantly.
-                </p>
-              </div>
-              
-              <div className="flex gap-4">
-                {user ? (
-                  <EnhancedButton variant="hero" size="lg" asChild>
-                    <Link to="/dashboard">
-                      <Search className="mr-2 h-5 w-5" />
-                      Go to Dashboard
-                    </Link>
-                  </EnhancedButton>
-                ) : (
-                  <EnhancedButton variant="hero" size="lg" asChild>
-                    <Link to="/auth">
-                      <LogIn className="mr-2 h-5 w-5" />
-                      Sign In / Sign Up
-                    </Link>
-                  </EnhancedButton>
-                )}
-                <EnhancedButton variant="outline" size="lg">
-                  Watch Demo
-                </EnhancedButton>
-              </div>
-
-              {/* Desktop Stats */}
-              <div className="grid grid-cols-3 gap-8 pt-8">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">500+</div>
-                  <div className="text-sm text-muted-foreground">Leads per search</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-success">2min</div>
-                  <div className="text-sm text-muted-foreground">Average search time</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-accent">4+</div>
-                  <div className="text-sm text-muted-foreground">Data sources</div>
-                </div>
-              </div>
-            </div>
+        <div className="container mx-auto text-center">
+          <div className="max-w-4xl mx-auto">
+            <Badge variant="secondary" className="mb-6 animate-fade-in">
+              Professional Lead Generation Tool
+            </Badge>
             
-            <div className="relative">
-              <div className="bg-card/80 backdrop-blur rounded-2xl p-8 shadow-strong border border-border/50">
-                <div className="space-y-4">
-                  <div className="h-4 bg-gradient-primary rounded w-3/4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-muted rounded w-full"></div>
-                    <div className="h-3 bg-muted rounded w-2/3"></div>
-                    <div className="h-3 bg-muted rounded w-4/5"></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4">
-                    <div className="h-20 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg"></div>
-                    <div className="h-20 bg-gradient-to-br from-success/20 to-warning/20 rounded-lg"></div>
-                  </div>
-                </div>
+            <h1 className="text-5xl lg:text-6xl font-bold mb-6 animate-slide-up leading-tight">
+              Find <span className="bg-gradient-primary bg-clip-text text-transparent">Business Leads</span>
+              <br />
+              Like Never Before
+            </h1>
+            
+            <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-fade-in">
+              Discover local businesses, extract contact information, and build your prospect database 
+              with our powerful lead generation tool. Search multiple directories simultaneously and 
+              export results instantly.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up mb-12">
+              {user ? (
+                <EnhancedButton variant="hero" size="lg" asChild>
+                  <Link to="/dashboard">
+                    <Search className="mr-2 h-5 w-5" />
+                    Go to Dashboard
+                  </Link>
+                </EnhancedButton>
+              ) : (
+                <EnhancedButton variant="hero" size="lg" asChild>
+                  <Link to="/auth">
+                    <LogIn className="mr-2 h-5 w-5" />
+                    Sign In / Sign Up
+                  </Link>
+                </EnhancedButton>
+              )}
+              <EnhancedButton variant="outline" size="lg">
+                Watch Demo
+              </EnhancedButton>
+            </div>
+
+            {/* Desktop Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-2xl mx-auto">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">500+</div>
+                <div className="text-sm text-muted-foreground">Leads per search</div>
               </div>
-              
-              {/* Floating Elements for Desktop */}
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-primary/10 rounded-full animate-float" />
-              <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-accent/10 rounded-full animate-float" style={{ animationDelay: '2s' }} />
+              <div className="text-center">
+                <div className="text-3xl font-bold text-success">2min</div>
+                <div className="text-sm text-muted-foreground">Average search time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-accent">4+</div>
+                <div className="text-sm text-muted-foreground">Data sources</div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Floating Elements */}
+        <div className="absolute top-20 left-10 w-20 h-20 bg-primary/10 rounded-full animate-float hidden lg:block" />
+        <div className="absolute top-40 right-20 w-32 h-32 bg-accent/10 rounded-full animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-20 left-1/4 w-16 h-16 bg-success/10 rounded-full animate-float" style={{ animationDelay: '4s' }} />
       </section>
 
       {/* Features Section */}
