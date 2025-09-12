@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { SecureSearchForm, SearchFormRef } from "@/components/search/SecureSearchForm";
 import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +22,7 @@ const Dashboard = () => {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchResults, setSearchResults] = useState<BusinessLead[]>([]);
   const [searchStats, setSearchStats] = useState<{
     totalFound: number;
@@ -239,106 +241,233 @@ const Dashboard = () => {
     return null;
   }
 
+  if (isMobile) {
+    // Mobile Layout - Stack everything vertically with thumb-friendly design
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Mobile Header */}
+        <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10">
+          <div className="p-4">
+            <h1 className="text-xl font-bold">Lead Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Find & manage leads</p>
+          </div>
+          
+          {/* Mobile Tab Pills */}
+          <div className="px-4 pb-4">
+            <Tabs defaultValue="search" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 h-12 bg-muted/50">
+                <TabsTrigger value="search" className="gap-2 text-sm font-medium">
+                  <Search className="h-4 w-4" />
+                  Search
+                </TabsTrigger>
+                <TabsTrigger value="manage" className="gap-2 text-sm font-medium">
+                  <Users className="h-4 w-4" />
+                  CRM
+                </TabsTrigger>
+                <TabsTrigger value="pipeline" className="gap-2 text-sm font-medium">
+                  <BarChart3 className="h-4 w-4" />
+                  Pipeline
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="search" className="space-y-6 mt-6">
+                <QuickActions onQuickSearch={handleQuickSearch} />
+                <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
+                
+                {searchStats && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <Card className="border-0 shadow-soft">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-primary">{searchStats.totalFound}</div>
+                        <div className="text-xs text-muted-foreground">Leads</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-0 shadow-soft">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-success">{searchStats.searchTime.toFixed(1)}s</div>
+                        <div className="text-xs text-muted-foreground">Time</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-0 shadow-soft">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-accent">{searchStats.creditsUsed}</div>
+                        <div className="text-xs text-muted-foreground">Credits</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {searchResults.length > 0 ? (
+                  <div className="space-y-4">
+                    <FreemiumResultsTable 
+                      leads={searchResults} 
+                      onUpgrade={() => setShowUpgradeModal(true)}
+                    />
+                    <ExpandSearchDialog
+                      open={showExpandDialog}
+                      onOpenChange={setShowExpandDialog}
+                      onExpandSearch={handleExpandSearch}
+                      currentCount={searchResults.length}
+                      location={currentSearchParams?.location || ''}
+                      businessType={currentSearchParams?.businessType || ''}
+                    />
+                    <UpgradeModal
+                      isOpen={showUpgradeModal}
+                      onClose={() => setShowUpgradeModal(false)}
+                      onPurchase={handleUpgrade}
+                      hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(50, Math.floor(searchResults.length * 0.1))))}
+                    />
+                  </div>
+                ) : (
+                  <Card className="border-0 shadow-soft">
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Search className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-2">Start Your Search</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Tap a quick action above or use the search form
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="manage" className="mt-6">
+                <LeadManagement />
+              </TabsContent>
+
+              <TabsContent value="pipeline" className="mt-6">
+                <PipelineView />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Layout - Side-by-side panels with more complex UI
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-6 sm:space-y-8">
-      <div className="px-2">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Business Lead Dashboard</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Search and manage your business leads with our secure platform
-        </p>
+    <div className="container mx-auto p-6 max-w-7xl space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Business Lead Dashboard</h1>
+          <p className="text-muted-foreground">
+            Search and manage your business leads with our secure platform
+          </p>
+        </div>
+        {searchStats && (
+          <div className="flex gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{searchStats.totalFound}</div>
+              <div className="text-sm text-muted-foreground">Total Leads</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-success">{searchStats.searchTime.toFixed(1)}s</div>
+              <div className="text-sm text-muted-foreground">Search Time</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <Tabs defaultValue="search" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
-          <TabsTrigger value="search" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
-            <Search className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Search</span>
-            <span className="xs:hidden">Leads</span>
+      <Tabs defaultValue="search" className="space-y-6">
+        <TabsList className="inline-flex h-12 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+          <TabsTrigger value="search" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-2 text-sm font-medium transition-all">
+            <Search className="mr-2 h-4 w-4" />
+            Lead Search
           </TabsTrigger>
-          <TabsTrigger value="manage" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Manage</span>
-            <span className="xs:hidden">CRM</span>
+          <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-2 text-sm font-medium transition-all">
+            <Users className="mr-2 h-4 w-4" />
+            Lead Management
           </TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
-            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Pipeline</span>
-            <span className="xs:hidden">Sales</span>
+          <TabsTrigger value="pipeline" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-2 text-sm font-medium transition-all">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Sales Pipeline
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="search" className="space-y-6 sm:space-y-8">
-
-      {/* Quick Actions */}
-      <QuickActions onQuickSearch={handleQuickSearch} />
-
-      <SecureSearchForm 
-        ref={searchFormRef}
-        onResults={handleSearchResults} 
-      />
-
-      {/* Search Stats */}
-      {searchStats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="border-0 shadow-soft">
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-primary">{searchStats.totalFound}</div>
-              <div className="text-sm text-muted-foreground">Leads Found</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-soft">
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-success">{searchStats.searchTime.toFixed(1)}s</div>
-              <div className="text-sm text-muted-foreground">Search Time</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-soft">
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-accent">{searchStats.creditsUsed}</div>
-              <div className="text-sm text-muted-foreground">Est. Credits Used</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {searchResults.length > 0 ? (
-        <>
-          <FreemiumResultsTable 
-            leads={searchResults} 
-            onUpgrade={() => setShowUpgradeModal(true)}
-          />
-          <ExpandSearchDialog
-            open={showExpandDialog}
-            onOpenChange={setShowExpandDialog}
-            onExpandSearch={handleExpandSearch}
-            currentCount={searchResults.length}
-            location={currentSearchParams?.location || ''}
-            businessType={currentSearchParams?.businessType || ''}
-          />
-          <UpgradeModal
-            isOpen={showUpgradeModal}
-            onClose={() => setShowUpgradeModal(false)}
-            onPurchase={handleUpgrade}
-            hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(50, Math.floor(searchResults.length * 0.1))))}
-          />
-        </>
-      ) : (
-        <Card className="border-0 shadow-soft">
-          <CardContent className="p-8 sm:p-12 text-center">
-            <div className="space-y-4">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <Search className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
-                <p className="text-muted-foreground text-sm sm:text-base">
-                  Use the search form above or try one of the quick actions to get started.
-                </p>
-              </div>
+        <TabsContent value="search" className="space-y-8">
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <QuickActions onQuickSearch={handleQuickSearch} />
+              <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
             </div>
-          </CardContent>
-        </Card>
-      )}
+            
+            <div className="space-y-6">
+              {searchStats && (
+                <Card className="border-0 shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Search Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Leads Found</span>
+                      <span className="text-2xl font-bold text-primary">{searchStats.totalFound}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Search Time</span>
+                      <span className="text-lg font-semibold text-success">{searchStats.searchTime.toFixed(1)}s</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Credits Used</span>
+                      <span className="text-lg font-semibold text-accent">{searchStats.creditsUsed}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <Card className="border-0 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="text-lg">Tips</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <p>• Use specific business types for better results</p>
+                  <p>• Try nearby cities to expand your search</p>
+                  <p>• Export leads to CSV for external tools</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {searchResults.length > 0 ? (
+            <div className="space-y-6">
+              <FreemiumResultsTable 
+                leads={searchResults} 
+                onUpgrade={() => setShowUpgradeModal(true)}
+              />
+              <ExpandSearchDialog
+                open={showExpandDialog}
+                onOpenChange={setShowExpandDialog}
+                onExpandSearch={handleExpandSearch}
+                currentCount={searchResults.length}
+                location={currentSearchParams?.location || ''}
+                businessType={currentSearchParams?.businessType || ''}
+              />
+              <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                onPurchase={handleUpgrade}
+                hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(50, Math.floor(searchResults.length * 0.1))))}
+              />
+            </div>
+          ) : (
+            <Card className="border-0 shadow-soft">
+              <CardContent className="p-12 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <Search className="h-10 w-10 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-medium mb-2">Ready to Find Business Leads</h3>
+                    <p className="text-muted-foreground">
+                      Use the search form or try one of the quick actions to get started with your lead generation.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="manage">
