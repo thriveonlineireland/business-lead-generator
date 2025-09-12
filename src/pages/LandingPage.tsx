@@ -50,20 +50,20 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-secondary">
       {/* Hero Section */}
-      <section className="relative py-20 px-4">
+      <section className="relative py-12 sm:py-16 md:py-20 px-4">
         <div className="container mx-auto text-center">
           <div className="max-w-4xl mx-auto">
             <Badge variant="secondary" className="mb-6 animate-fade-in">
               Professional Lead Generation Tool
             </Badge>
             
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-slide-up">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-slide-up leading-tight">
               Find <span className="bg-gradient-primary bg-clip-text text-transparent">Business Leads</span>
-              <br />
-              Like Never Before
+              <br className="hidden sm:block" />
+              <span className="block sm:inline">Like Never Before</span>
             </h1>
             
-            <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-fade-in">
+            <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-fade-in px-4">
               Discover local businesses, extract contact information, and build your prospect database 
               with our powerful lead generation tool. Search multiple directories simultaneously and 
               export results instantly.
@@ -96,7 +96,7 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4">
+      <section className="py-12 sm:py-16 md:py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -108,7 +108,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
@@ -132,7 +132,7 @@ const LandingPage = () => {
       </section>
 
       {/* Directories Section */}
-      <section className="py-20 px-4 bg-muted/30">
+      <section className="py-12 sm:py-16 md:py-20 px-4 bg-muted/30">
         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -143,7 +143,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {directories.map((directory, index) => (
               <Card key={index} className="text-center border-0 shadow-soft hover:shadow-medium transition-all duration-300 bg-card/80 backdrop-blur-sm">
                 <CardHeader>

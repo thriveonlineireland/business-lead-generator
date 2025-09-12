@@ -188,7 +188,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <LocationSelector 
                 value={location} 
                 onValueChange={setLocation} 

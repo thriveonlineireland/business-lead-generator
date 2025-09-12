@@ -176,7 +176,7 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -284,9 +284,9 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
           </div>
         </CardHeader>
 
-        <CardContent>
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
+        <CardContent className="p-0">
+          <div className="rounded-lg border overflow-x-auto">
+            <Table className="min-w-full">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-12">
@@ -297,11 +297,11 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                       className="rounded border-gray-300"
                     />
                   </TableHead>
-                  <TableHead className="font-semibold">Business Name</TableHead>
-                  <TableHead className="font-semibold">Contact</TableHead>
-                  <TableHead className="font-semibold">Website</TableHead>
-                  <TableHead className="font-semibold">Source</TableHead>
-                  <TableHead className="font-semibold w-24">Actions</TableHead>
+                  <TableHead className="font-semibold min-w-[200px]">Business Name</TableHead>
+                  <TableHead className="font-semibold min-w-[180px]">Contact</TableHead>
+                  <TableHead className="font-semibold min-w-[120px]">Website</TableHead>
+                  <TableHead className="font-semibold min-w-[100px]">Source</TableHead>
+                  <TableHead className="font-semibold w-24 min-w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

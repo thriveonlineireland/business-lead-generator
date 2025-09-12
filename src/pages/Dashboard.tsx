@@ -240,31 +240,34 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Business Lead Dashboard</h1>
-        <p className="text-muted-foreground">
+    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-6 sm:space-y-8">
+      <div className="px-2">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Business Lead Dashboard</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
           Search and manage your business leads with our secure platform
         </p>
       </div>
 
-      <Tabs defaultValue="search" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="search" className="gap-2">
-            <Search className="h-4 w-4" />
-            Search Leads
+      <Tabs defaultValue="search" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+          <TabsTrigger value="search" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
+            <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Search</span>
+            <span className="xs:hidden">Leads</span>
           </TabsTrigger>
-          <TabsTrigger value="manage" className="gap-2">
-            <Users className="h-4 w-4" />
-            Manage Leads
+          <TabsTrigger value="manage" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Manage</span>
+            <span className="xs:hidden">CRM</span>
           </TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Sales Pipeline
+          <TabsTrigger value="pipeline" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Pipeline</span>
+            <span className="xs:hidden">Sales</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="search" className="space-y-8">
+        <TabsContent value="search" className="space-y-6 sm:space-y-8">
 
       {/* Quick Actions */}
       <QuickActions onQuickSearch={handleQuickSearch} />
@@ -276,7 +279,7 @@ const Dashboard = () => {
 
       {/* Search Stats */}
       {searchStats && (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="border-0 shadow-soft">
             <CardContent className="p-6 text-center">
               <div className="text-2xl font-bold text-primary">{searchStats.totalFound}</div>
@@ -320,22 +323,22 @@ const Dashboard = () => {
           />
         </>
       ) : (
-          <Card className="border-0 shadow-soft">
-            <CardContent className="p-12 text-center">
-              <div className="space-y-4">
-                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
-                  <p className="text-muted-foreground">
-                    Use the search form above or try one of the quick actions to get started.
-                  </p>
-                </div>
+        <Card className="border-0 shadow-soft">
+          <CardContent className="p-8 sm:p-12 text-center">
+            <div className="space-y-4">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                <Search className="h-8 w-8 text-muted-foreground" />
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div>
+                <h3 className="text-lg font-medium mb-2">Ready to Find Business Leads</h3>
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  Use the search form above or try one of the quick actions to get started.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
         </TabsContent>
 
         <TabsContent value="manage">

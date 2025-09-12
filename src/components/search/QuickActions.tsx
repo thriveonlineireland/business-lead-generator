@@ -31,16 +31,17 @@ const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {quickSearches.map((search, index) => (
             <EnhancedButton
               key={index}
               variant="outline"
               size="sm"
               onClick={() => onQuickSearch(search.location, search.businessType)}
-              className="h-auto p-3 flex flex-col items-center space-y-1 hover:shadow-soft transition-all duration-200"
+              className="h-auto p-3 flex flex-col items-center space-y-2 hover:shadow-soft transition-all duration-200"
+              title={`Search for ${search.businessType} in ${search.location}`}
             >
-              <span className="text-xs font-medium text-center">{search.label}</span>
+              <span className="text-xs font-medium text-center leading-tight">{search.label}</span>
               <Badge variant="secondary" className="text-xs">
                 Target: 500+ leads
               </Badge>
