@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, Globe, Euro } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Phone, Mail, Globe, Euro, BarChart3, TrendingUp } from "lucide-react";
 
 interface BusinessLead {
   id: string;
@@ -30,6 +31,7 @@ const PIPELINE_STAGES = [
 const PipelineView = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [leads, setLeads] = useState<BusinessLead[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -98,21 +100,147 @@ const PipelineView = () => {
       .reduce((sum, lead) => sum + (lead.estimated_value || 0), 0);
   };
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10 p-4">
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Sales Pipeline</h1>
+              <p className="text-sm text-muted-foreground">Track your leads</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-muted/30 rounded-lg">
+                <div className="font-bold text-lg">{leads.length}</div>
+                <div className="text-xs text-muted-foreground">Total Leads</div>
+              </div>
+              <div className="text-center p-3 bg-muted/30 rounded-lg">
+                <div className="font-bold text-lg text-green-600">
+                  €{leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
+                </div>
+                <div className="text-xs text-muted-foreground">Total Value</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-pulse">Loading pipeline...</div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {PIPELINE_STAGES.map((stage) => (
+                <div key={stage.id} className="space-y-3">
+                  <div className={`p-4 rounded-lg ${stage.color}`}>
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold">{stage.title}</h3>
+                      <Badge variant="secondary">{getLeadsByStatus(stage.id).length}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      €{getTotalValue(stage.id).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {getLeadsByStatus(stage.id).length > 0 ? (
+                      getLeadsByStatus(stage.id).map((lead, index) => (
+                        <Card
+                          key={lead.id}
+                          className={`border-l-4 ${getPriorityColor(lead.priority)} shadow-soft`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-medium leading-tight">{lead.name}</h4>
+                                <Badge 
+                                  className={`text-xs ${
+                                    lead.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                    lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}
+                                >
+                                  {lead.priority}
+                                </Badge>
+                              </div>
+                              
+                              {lead.business_type && (
+                                <Badge variant="outline" className="text-xs w-fit">
+                                  {lead.business_type}
+                                </Badge>
+                              )}
+
+                              <div className="space-y-2">
+                                {lead.email && (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Mail className="h-3 w-3" />
+                                    <span className="truncate">{lead.email}</span>
+                                  </div>
+                                )}
+                                {lead.phone && (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Phone className="h-3 w-3" />
+                                    <span>{lead.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {lead.estimated_value && (
+                                <div className="flex items-center gap-1 font-medium text-green-600">
+                                  <Euro className="h-3 w-3" />
+                                  <span>{lead.estimated_value.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <div className="text-sm">No leads in {stage.title.toLowerCase()}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && leads.length === 0 && (
+            <div className="text-center py-12">
+              <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="font-medium mb-2">No leads in pipeline</h3>
+              <p className="text-sm text-muted-foreground">
+                Add some leads to see your sales pipeline
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Layout
   if (loading) {
-    return <div className="p-6"><div className="animate-pulse">Loading pipeline...</div></div>;
+    return <div className="p-8"><div className="animate-pulse text-xl">Loading pipeline...</div></div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Sales Pipeline</h2>
-        <div className="flex gap-4 text-sm">
+        <div>
+          <h2 className="text-3xl font-bold">Sales Pipeline</h2>
+          <p className="text-muted-foreground mt-2">Track your leads through the sales process</p>
+        </div>
+        <div className="flex gap-8 text-base">
           <div className="text-center">
-            <div className="font-bold text-lg">{leads.length}</div>
+            <div className="font-bold text-2xl">{leads.length}</div>
             <div className="text-muted-foreground">Total Leads</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-lg text-green-600">
+            <div className="font-bold text-2xl text-green-600">
               €{leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
             </div>
             <div className="text-muted-foreground">Total Value</div>
@@ -120,103 +248,113 @@ const PipelineView = () => {
         </div>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid lg:grid-cols-4 gap-6">
-          {PIPELINE_STAGES.map((stage) => (
-            <div key={stage.id} className="space-y-4">
-              <div className={`p-4 rounded-lg ${stage.color}`}>
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold">{stage.title}</h3>
-                  <Badge variant="secondary">{getLeadsByStatus(stage.id).length}</Badge>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  €{getTotalValue(stage.id).toLocaleString()}
-                </div>
-              </div>
-
-              <Droppable droppableId={stage.id}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`space-y-3 min-h-[200px] p-2 rounded-lg transition-colors ${
-                      snapshot.isDraggingOver ? 'bg-muted/50' : ''
-                    }`}
-                  >
-                    {getLeadsByStatus(stage.id).map((lead, index) => (
-                      <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                        {(provided, snapshot) => (
-                          <Card
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`border-l-4 ${getPriorityColor(lead.priority)} ${
-                              snapshot.isDragging ? 'shadow-lg' : ''
-                            } cursor-move hover:shadow-md transition-shadow`}
-                          >
-                            <CardContent className="p-3">
-                              <div className="space-y-2">
-                                <h4 className="font-medium text-sm leading-tight">{lead.name}</h4>
-                                
-                                {lead.business_type && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {lead.business_type}
-                                  </Badge>
-                                )}
-
-                                <div className="space-y-1">
-                                  {lead.email && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Mail className="h-3 w-3" />
-                                      <span className="truncate">{lead.email}</span>
-                                    </div>
-                                  )}
-                                  {lead.phone && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Phone className="h-3 w-3" />
-                                      <span>{lead.phone}</span>
-                                    </div>
-                                  )}
-                                  {lead.website && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Globe className="h-3 w-3" />
-                                      <span className="truncate">{lead.website}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {lead.estimated_value && (
-                                  <div className="flex items-center gap-1 text-sm font-medium text-green-600">
-                                    <Euro className="h-3 w-3" />
-                                    {lead.estimated_value.toLocaleString()}
-                                  </div>
-                                )}
-
-                                <div className="flex justify-between items-center">
-                                  <Badge 
-                                    className={
-                                      lead.priority === 'high' ? 'bg-red-100 text-red-800' :
-                                      lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-green-100 text-green-800'
-                                    }
-                                  >
-                                    {lead.priority}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
+      {leads.length > 0 ? (
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="grid lg:grid-cols-4 gap-8">
+            {PIPELINE_STAGES.map((stage) => (
+              <div key={stage.id} className="space-y-6">
+                <div className={`p-6 rounded-lg ${stage.color}`}>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg">{stage.title}</h3>
+                    <Badge variant="secondary" className="text-sm">{getLeadsByStatus(stage.id).length}</Badge>
                   </div>
-                )}
-              </Droppable>
-            </div>
-          ))}
+                  <div className="text-base text-muted-foreground mt-2">
+                    €{getTotalValue(stage.id).toLocaleString()}
+                  </div>
+                </div>
+
+                <Droppable droppableId={stage.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`space-y-4 min-h-[300px] p-3 rounded-lg transition-colors ${
+                        snapshot.isDraggingOver ? 'bg-muted/50' : ''
+                      }`}
+                    >
+                      {getLeadsByStatus(stage.id).map((lead, index) => (
+                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`border-l-4 ${getPriorityColor(lead.priority)} ${
+                                snapshot.isDragging ? 'shadow-xl' : 'shadow-medium'
+                              } cursor-move hover:shadow-strong transition-shadow`}
+                            >
+                              <CardContent className="p-4">
+                                <div className="space-y-3">
+                                  <h4 className="font-medium leading-tight">{lead.name}</h4>
+                                  
+                                  {lead.business_type && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {lead.business_type}
+                                    </Badge>
+                                  )}
+
+                                  <div className="space-y-2">
+                                    {lead.email && (
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Mail className="h-3 w-3" />
+                                        <span className="truncate">{lead.email}</span>
+                                      </div>
+                                    )}
+                                    {lead.phone && (
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Phone className="h-3 w-3" />
+                                        <span>{lead.phone}</span>
+                                      </div>
+                                    )}
+                                    {lead.website && (
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Globe className="h-3 w-3" />
+                                        <span className="truncate">{lead.website}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {lead.estimated_value && (
+                                    <div className="flex items-center gap-1 font-medium text-green-600">
+                                      <Euro className="h-4 w-4" />
+                                      <span>{lead.estimated_value.toLocaleString()}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex justify-between items-center">
+                                    <Badge 
+                                      className={
+                                        lead.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                        lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'
+                                      }
+                                    >
+                                      {lead.priority}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            ))}
+          </div>
+        </DragDropContext>
+      ) : (
+        <div className="text-center py-20">
+          <TrendingUp className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
+          <h3 className="text-2xl font-medium mb-4">No leads in pipeline</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Start adding business leads to track them through your sales process and manage your pipeline effectively.
+          </p>
         </div>
-      </DragDropContext>
+      )}
     </div>
   );
 };

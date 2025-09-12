@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Phone, Mail, Globe, MapPin, Calendar, Tag, MessageSquare } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Plus, Phone, Mail, Globe, MapPin, Calendar, Tag, MessageSquare, Users, ArrowLeft } from "lucide-react";
 
 interface BusinessLead {
   id: string;
@@ -47,6 +48,7 @@ interface Tag {
 const LeadManagement = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [leads, setLeads] = useState<BusinessLead[]>([]);
   const [selectedLead, setSelectedLead] = useState<BusinessLead | null>(null);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
@@ -219,49 +221,328 @@ const LeadManagement = () => {
     }
   };
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">Lead Management</h1>
+              <p className="text-sm text-muted-foreground">{leads.length} leads total</p>
+            </div>
+            <Button size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Lead
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-pulse">Loading leads...</div>
+            </div>
+          ) : leads.length > 0 ? (
+            leads.map((lead) => (
+              <Card key={lead.id} className="border-0 shadow-soft cursor-pointer hover:shadow-medium transition-shadow" onClick={() => selectLead(lead)}>
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-semibold">{lead.name}</h3>
+                      <div className="flex gap-1">
+                        <Badge className={`text-xs ${getStatusColor(lead.status)}`}>{lead.status}</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {lead.email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate">{lead.email}</span>
+                        </div>
+                      )}
+                      {lead.phone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          <span>{lead.phone}</span>
+                        </div>
+                      )}
+                      {lead.address && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate">{lead.address}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                      <Badge className={`text-xs ${getPriorityColor(lead.priority)}`}>{lead.priority}</Badge>
+                      {lead.estimated_value && (
+                        <span className="text-sm font-medium text-green-600">
+                          €{lead.estimated_value.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="font-medium mb-2">No leads found</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Start by adding your first business lead
+              </p>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Lead
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Lead Detail Dialog */}
+        <Dialog open={showLeadDialog} onOpenChange={setShowLeadDialog}>
+          <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto mx-4">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowLeadDialog(false)}
+                  className="p-1 h-8 w-8"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <DialogTitle className="text-lg truncate">{selectedLead?.name}</DialogTitle>
+              </div>
+            </DialogHeader>
+            
+            {selectedLead && (
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Status</label>
+                    <Select value={selectedLead.status} onValueChange={(value) => updateLeadStatus(selectedLead.id, value)}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="contacted">Contacted</SelectItem>
+                        <SelectItem value="qualified">Qualified</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Priority</label>
+                    <Select value={selectedLead.priority} onValueChange={(value) => updateLeadPriority(selectedLead.id, value)}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {selectedLead.email && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm break-all">{selectedLead.email}</span>
+                    </div>
+                  )}
+                  {selectedLead.phone && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{selectedLead.phone}</span>
+                    </div>
+                  )}
+                  {selectedLead.website && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm break-all">{selectedLead.website}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold">Interactions</h3>
+                    <Button size="sm" onClick={() => setShowInteractionDialog(true)} className="gap-2">
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {interactions.map((interaction) => (
+                      <Card key={interaction.id} className="border border-border/50">
+                        <CardContent className="p-3">
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-start">
+                              <span className="font-medium text-sm capitalize">{interaction.interaction_type}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(interaction.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {interaction.subject && <p className="text-sm font-medium">{interaction.subject}</p>}
+                            {interaction.content && <p className="text-sm text-muted-foreground">{interaction.content}</p>}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    
+                    {interactions.length === 0 && (
+                      <p className="text-center text-muted-foreground py-4 text-sm">No interactions yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Mobile Add Interaction Dialog */}
+        <Dialog open={showInteractionDialog} onOpenChange={setShowInteractionDialog}>
+          <DialogContent className="max-w-sm mx-4">
+            <DialogHeader>
+              <DialogTitle>Add Interaction</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium block mb-2">Type</label>
+                <Select value={newInteraction.type} onValueChange={(value) => setNewInteraction({...newInteraction, type: value})}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="call">Phone Call</SelectItem>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="note">Note</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium block mb-2">Subject</label>
+                <Input 
+                  value={newInteraction.subject} 
+                  onChange={(e) => setNewInteraction({...newInteraction, subject: e.target.value})}
+                  placeholder="Subject"
+                  className="h-12"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium block mb-2">Content</label>
+                <Textarea 
+                  value={newInteraction.content} 
+                  onChange={(e) => setNewInteraction({...newInteraction, content: e.target.value})}
+                  placeholder="Details"
+                  rows={3}
+                />
+              </div>
+              
+              <Button onClick={addInteraction} className="w-full h-12">
+                Add Interaction
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Desktop Layout
   if (loading) {
-    return <div className="p-6"><div className="animate-pulse">Loading leads...</div></div>;
+    return <div className="p-8"><div className="animate-pulse text-xl">Loading leads...</div></div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Lead Management</h2>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
+        <div>
+          <h2 className="text-3xl font-bold">Lead Management</h2>
+          <p className="text-muted-foreground mt-2">Manage and track your business leads</p>
+        </div>
+        <Button className="gap-2 h-12 px-6">
+          <Plus className="h-5 w-5" />
           Add Lead
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {leads.map((lead) => (
-          <Card key={lead.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => selectLead(lead)}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">{lead.name}</h3>
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    {lead.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{lead.email}</div>}
-                    {lead.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</div>}
-                    {lead.website && <div className="flex items-center gap-1"><Globe className="h-3 w-3" />{lead.website}</div>}
-                  </div>
-                  {lead.address && <div className="flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3 w-3" />{lead.address}</div>}
-                </div>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Badge className={getStatusColor(lead.status)}>{lead.status}</Badge>
-                    <Badge className={getPriorityColor(lead.priority)}>{lead.priority}</Badge>
-                  </div>
-                  {lead.estimated_value && (
-                    <div className="text-sm font-medium text-green-600">
-                      €{lead.estimated_value.toLocaleString()}
+      <div className="grid gap-6">
+        {leads.length > 0 ? (
+          leads.map((lead) => (
+            <Card key={lead.id} className="cursor-pointer hover:shadow-lg transition-all duration-200 border-0 shadow-medium" onClick={() => selectLead(lead)}>
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-4 flex-1">
+                    <h3 className="font-semibold text-xl">{lead.name}</h3>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-muted-foreground">
+                      {lead.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          <span>{lead.email}</span>
+                        </div>
+                      )}
+                      {lead.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          <span>{lead.phone}</span>
+                        </div>
+                      )}
+                      {lead.website && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          <span>{lead.website}</span>
+                        </div>
+                      )}
+                      {lead.address && (
+                        <div className="flex items-center gap-2 md:col-span-2 lg:col-span-3">
+                          <MapPin className="h-4 w-4" />
+                          <span>{lead.address}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                  <div className="space-y-3 text-right">
+                    <div className="flex gap-3">
+                      <Badge className={getStatusColor(lead.status)}>{lead.status}</Badge>
+                      <Badge className={getPriorityColor(lead.priority)}>{lead.priority}</Badge>
+                    </div>
+                    {lead.estimated_value && (
+                      <div className="text-xl font-bold text-green-600">
+                        €{lead.estimated_value.toLocaleString()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-16">
+            <Users className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
+            <h3 className="text-2xl font-medium mb-4">No leads found</h3>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+              Start building your customer database by adding your first business lead. Track interactions, manage priorities, and grow your business.
+            </p>
+            <Button className="gap-2 h-12 px-8">
+              <Plus className="h-5 w-5" />
+              Add Your First Lead
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Lead Detail Dialog */}

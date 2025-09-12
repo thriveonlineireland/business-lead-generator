@@ -6,12 +6,14 @@ import { Label } from "@/components/ui/label";
 import { EnhancedButton } from "@/components/ui/enhanced-button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { User, LogIn, UserPlus, Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -260,16 +262,217 @@ const Auth = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-            <User className="w-6 h-6 text-primary-foreground" />
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
+        {/* Mobile Header */}
+        <div className="text-center pt-8 pb-6 px-4">
+          <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-xl flex items-center justify-center mb-4">
+            <User className="w-8 h-8 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold">Business Lead Generator</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-2">
+            {isForgotPassword 
+              ? "Reset your password"
+              : isSignUp 
+                ? "Create your account" 
+                : "Welcome back"
+            }
+          </p>
+        </div>
+
+        {/* Mobile Form */}
+        <div className="flex-1 px-4 pb-8">
+          <Card className="shadow-lg border-0 max-w-md mx-auto">
+            <CardHeader className="text-center pb-6">
+              <CardTitle className="text-xl">
+                {isForgotPassword ? "Reset Password" : isSignUp ? "Sign Up" : "Sign In"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <form onSubmit={isForgotPassword ? handleForgotPassword : isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName" className="flex items-center space-x-2">
+                      <User className="h-4 w-4" />
+                      <span>Name</span>
+                    </Label>
+                    <Input
+                      id="displayName"
+                      name="displayName"
+                      type="text"
+                      placeholder="Your name"
+                      value={formData.displayName}
+                      onChange={handleInputChange}
+                      required={isSignUp}
+                      className="h-12"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center space-x-2">
+                    <Mail className="h-4 w-4" />
+                    <span>Email</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    className="h-12"
+                  />
+                </div>
+
+                {!isForgotPassword && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="flex items-center space-x-2">
+                      <Lock className="h-4 w-4" />
+                      <span>Password</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        required
+                        className="h-12 pr-12"
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <EnhancedButton
+                  type="submit"
+                  className="w-full h-12"
+                  disabled={isLoading}
+                  size="lg"
+                  variant="gradient"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>
+                        {isForgotPassword ? "Sending..." : isSignUp ? "Creating..." : "Signing in..."}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      {isForgotPassword 
+                        ? <Mail className="h-4 w-4" />
+                        : isSignUp 
+                          ? <UserPlus className="h-4 w-4" /> 
+                          : <LogIn className="h-4 w-4" />
+                      }
+                      <span>
+                        {isForgotPassword ? "Send Reset Email" : isSignUp ? "Create Account" : "Sign In"}
+                      </span>
+                    </div>
+                  )}
+                </EnhancedButton>
+              </form>
+
+              <div className="space-y-4">
+                <Separator />
+                
+                <div className="text-center space-y-3">
+                  {!isForgotPassword ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSignUp(!isSignUp);
+                          setIsForgotPassword(false);
+                          setFormData({ email: "", password: "", displayName: "" });
+                        }}
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {isSignUp ? (
+                          <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
+                        ) : (
+                          <>Don't have an account? <span className="text-primary font-medium">Sign up</span></>
+                        )}
+                      </button>
+
+                      {!isSignUp && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsForgotPassword(true);
+                              setIsSignUp(false);
+                              setFormData(prev => ({ ...prev, password: "", displayName: "" }));
+                            }}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(false);
+                        setIsSignUp(false);
+                        setFormData({ email: "", password: "", displayName: "" });
+                      }}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Back to sign in
+                    </button>
+                  )}
+                  
+                  {!isSignUp && !isForgotPassword && (
+                    <div className="pt-4 border-t bg-muted/30 rounded-lg p-4">
+                      <p className="text-xs text-muted-foreground mb-3 text-center">
+                        Haven't received your confirmation email?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResendConfirmation}
+                        disabled={resendLoading || !formData.email}
+                        className="text-xs text-primary hover:underline disabled:opacity-50 font-medium w-full"
+                      >
+                        {resendLoading ? "Sending..." : "🔄 Resend confirmation"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Layout
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="w-full max-w-lg space-y-8">
+        {/* Desktop Header */}
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-xl flex items-center justify-center">
+            <User className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-bold">Business Lead Generator</h1>
+          <p className="text-lg text-muted-foreground">
             {isForgotPassword 
               ? "Enter your email to receive password reset instructions"
               : isSignUp 
@@ -279,13 +482,13 @@ const Auth = () => {
           </p>
         </div>
 
-        {/* Auth Form */}
-        <Card className="shadow-lg border-0">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl text-center">
+        {/* Desktop Auth Form */}
+        <Card className="shadow-xl border-0">
+          <CardHeader className="space-y-2 text-center">
+            <CardTitle className="text-2xl">
               {isForgotPassword ? "Reset Password" : isSignUp ? "Create Account" : "Sign In"}
             </CardTitle>
-            <CardDescription className="text-center">
+            <CardDescription className="text-base">
               {isForgotPassword 
                 ? "We'll send you a link to reset your password"
                 : isSignUp 
@@ -294,11 +497,11 @@ const Auth = () => {
               }
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={isForgotPassword ? handleForgotPassword : isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
+          <CardContent className="space-y-6">
+            <form onSubmit={isForgotPassword ? handleForgotPassword : isSignUp ? handleSignUp : handleSignIn} className="space-y-6">
               {isSignUp && (
                 <div className="space-y-2">
-                  <Label htmlFor="displayName" className="flex items-center space-x-2">
+                  <Label htmlFor="displayName" className="flex items-center space-x-2 text-base">
                     <User className="h-4 w-4" />
                     <span>Display Name</span>
                   </Label>
@@ -310,13 +513,13 @@ const Auth = () => {
                     value={formData.displayName}
                     onChange={handleInputChange}
                     required={isSignUp}
-                    className="transition-all duration-200"
+                    className="h-12 text-base"
                   />
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center space-x-2">
+                <Label htmlFor="email" className="flex items-center space-x-2 text-base">
                   <Mail className="h-4 w-4" />
                   <span>Email</span>
                 </Label>
@@ -328,13 +531,13 @@ const Auth = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  className="transition-all duration-200"
+                  className="h-12 text-base"
                 />
               </div>
 
               {!isForgotPassword && (
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="flex items-center space-x-2">
+                  <Label htmlFor="password" className="flex items-center space-x-2 text-base">
                     <Lock className="h-4 w-4" />
                     <span>Password</span>
                   </Label>
@@ -347,19 +550,19 @@ const Auth = () => {
                       value={formData.password}
                       onChange={handleInputChange}
                       required
-                      className="transition-all duration-200 pr-10"
+                      className="h-12 text-base pr-12"
                       minLength={6}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                   {isSignUp && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       Password must be at least 6 characters long
                     </p>
                   )}
@@ -368,15 +571,15 @@ const Auth = () => {
 
               <EnhancedButton
                 type="submit"
-                className="w-full"
+                className="w-full h-12"
                 disabled={isLoading}
                 size="lg"
                 variant="gradient"
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span className="text-base">
                       {isForgotPassword 
                         ? "Sending reset email..." 
                         : isSignUp 
@@ -388,12 +591,12 @@ const Auth = () => {
                 ) : (
                   <div className="flex items-center space-x-2">
                     {isForgotPassword 
-                      ? <Mail className="h-4 w-4" />
+                      ? <Mail className="h-5 w-5" />
                       : isSignUp 
-                        ? <UserPlus className="h-4 w-4" /> 
-                        : <LogIn className="h-4 w-4" />
+                        ? <UserPlus className="h-5 w-5" /> 
+                        : <LogIn className="h-5 w-5" />
                     }
-                    <span>
+                    <span className="text-base">
                       {isForgotPassword 
                         ? "Send Reset Email" 
                         : isSignUp 
@@ -408,7 +611,7 @@ const Auth = () => {
 
             <Separator />
 
-            <div className="text-center space-y-3">
+            <div className="text-center space-y-4">
               {!isForgotPassword ? (
                 <>
                   <button
@@ -418,7 +621,7 @@ const Auth = () => {
                       setIsForgotPassword(false);
                       setFormData({ email: "", password: "", displayName: "" });
                     }}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-base text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {isSignUp ? (
                       <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
@@ -436,7 +639,7 @@ const Auth = () => {
                           setIsSignUp(false);
                           setFormData(prev => ({ ...prev, password: "", displayName: "" }));
                         }}
-                        className="text-sm text-primary hover:underline"
+                        className="text-base text-primary hover:underline"
                       >
                         Forgot your password?
                       </button>
@@ -451,31 +654,31 @@ const Auth = () => {
                     setIsSignUp(false);
                     setFormData({ email: "", password: "", displayName: "" });
                   }}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-base text-muted-foreground hover:text-foreground transition-colors"
                 >
                   ← Back to sign in
                 </button>
               )}
               
               {!isSignUp && !isForgotPassword && (
-                <div className="pt-4 border-t bg-muted/30 rounded-lg p-3">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-3">
+                <div className="pt-6 border-t bg-muted/30 rounded-lg p-6">
+                  <div className="text-center space-y-4">
+                    <p className="text-sm text-muted-foreground">
                       🚨 <strong>Not receiving emails?</strong> Check your spam folder first!
                     </p>
-                    <p className="text-xs text-muted-foreground mb-2">
+                    <p className="text-sm text-muted-foreground">
                       Haven't received your confirmation email?
                     </p>
                     <button
                       type="button"
                       onClick={handleResendConfirmation}
                       disabled={resendLoading || !formData.email}
-                      className="text-xs text-primary hover:underline disabled:opacity-50 font-medium"
+                      className="text-sm text-primary hover:underline disabled:opacity-50 font-medium"
                     >
                       {resendLoading ? "Sending..." : "🔄 Resend confirmation email"}
                     </button>
                     {!formData.email && (
-                      <p className="text-xs text-red-500 mt-1">Enter your email above first</p>
+                      <p className="text-sm text-red-500">Enter your email above first</p>
                     )}
                   </div>
                 </div>
@@ -485,7 +688,7 @@ const Auth = () => {
         </Card>
 
         {/* Additional Info */}
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-muted-foreground">
           <p>Secure authentication powered by Supabase</p>
         </div>
       </div>

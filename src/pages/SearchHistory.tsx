@@ -9,6 +9,7 @@ import { StorageService, SearchHistory, SavedSearch } from "@/utils/StorageServi
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye, Crown } from "lucide-react";
 import { ExportService } from "@/utils/ExportService";
 import { BusinessLead } from "@/utils/FirecrawlService";
@@ -18,6 +19,7 @@ import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
 const SearchHistoryPage = () => {
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
+  const isMobile = useIsMobile();
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [supabaseLeads, setSupabaseLeads] = useState<any[]>([]);
@@ -170,25 +172,174 @@ const SearchHistoryPage = () => {
     return colors[directory] || "bg-gray-100 text-gray-800";
   };
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Mobile Header */}
+        <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10 p-4">
+          <h1 className="text-xl font-bold">Search History</h1>
+          <p className="text-sm text-muted-foreground">View past searches</p>
+          
+          <div className="mt-4">
+            <Input
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          {!user && !authLoading && (
+            <div className="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+              <div className="flex items-center space-x-2 text-sm">
+                <AlertCircle className="h-4 w-4 text-warning flex-shrink-0" />
+                <span>Sign in to access cloud history</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <Tabs defaultValue={user ? "leads" : "history"} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-12 mb-6">
+              {user && (
+                <TabsTrigger value="leads" className="text-sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  My Leads
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="history" className="text-sm">
+                <History className="h-4 w-4 mr-2" />
+                History
+              </TabsTrigger>
+            </TabsList>
+
+            {user && (
+              <TabsContent value="leads" className="space-y-4">
+                {supabaseLeads.length > 0 ? (
+                  <div className="space-y-3">
+                    {supabaseLeads.map((lead) => (
+                      <Card key={lead.id} className="border-0 shadow-soft">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <h3 className="font-semibold">{lead.name}</h3>
+                              <Badge variant="outline" className="text-xs">
+                                {lead.business_type}
+                              </Badge>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm">
+                              {lead.email && (
+                                <div className="flex items-center space-x-2">
+                                  <Mail className="h-3 w-3 text-muted-foreground" />
+                                  <span className="truncate">{lead.email}</span>
+                                </div>
+                              )}
+                              {lead.phone && (
+                                <div className="flex items-center space-x-2">
+                                  <Phone className="h-3 w-3 text-muted-foreground" />
+                                  <span>{lead.phone}</span>
+                                </div>
+                              )}
+                              {lead.location && (
+                                <div className="flex items-center space-x-2">
+                                  <MapPin className="h-3 w-3 text-muted-foreground" />
+                                  <span className="truncate">{lead.location}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(lead.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Eye className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="font-medium mb-2">No leads found</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Start searching to see your leads here
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+            )}
+
+            <TabsContent value="history" className="space-y-4">
+              {filteredHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredHistory.map((item, index) => (
+                    <Card key={index} className="border-0 shadow-soft">
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start">
+                            <h3 className="font-semibold text-sm">{item.businessType}</h3>
+                            <Badge variant="outline" className="text-xs">
+                              {item.resultsCount} results
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            <span>{item.location}</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(item.timestamp)}
+                            </span>
+                            <Badge className={getDirectoryBadgeColor(item.directory)} variant="secondary">
+                              {item.directory}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="font-medium mb-2">No search history</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your searches will appear here
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Layout
   return (
-    <div className="container mx-auto p-6 space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Search History & Saved Searches</h1>
-          <p className="text-muted-foreground">
+    <div className="container mx-auto p-8 space-y-8 animate-fade-in max-w-7xl">
+      {/* Desktop Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold">Search History & Saved Searches</h1>
+          <p className="text-xl text-muted-foreground">
             View your past searches and manage saved lead collections
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search history..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
+              className="pl-12 w-80 h-12"
             />
           </div>
         </div>
@@ -197,10 +348,10 @@ const SearchHistoryPage = () => {
       {/* Authentication Notice */}
       {!user && !authLoading && (
         <Card className="border-warning bg-warning/10">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-warning" />
-              <span className="text-sm font-medium">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="h-6 w-6 text-warning" />
+              <span className="text-base font-medium">
                 You're not logged in. Only local search history is shown. Sign in to access your cloud-saved leads and search history.
               </span>
             </div>
@@ -209,26 +360,26 @@ const SearchHistoryPage = () => {
       )}
 
       <Tabs defaultValue={user ? "leads" : "history"} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <TabsList className="inline-flex h-12 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
           {user && (
-            <TabsTrigger value="leads" className="flex items-center space-x-2">
-              <Eye className="h-4 w-4" />
-              <span>My Leads</span>
+            <TabsTrigger value="leads" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-3 text-sm font-medium transition-all">
+              <Eye className="mr-2 h-4 w-4" />
+              My Leads
             </TabsTrigger>
           )}
           {user && (
-            <TabsTrigger value="supabase-history" className="flex items-center space-x-2">
-              <History className="h-4 w-4" />
-              <span>Cloud History</span>
+            <TabsTrigger value="supabase-history" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-3 text-sm font-medium transition-all">
+              <History className="mr-2 h-4 w-4" />
+              Cloud History
             </TabsTrigger>
           )}
-          <TabsTrigger value="history" className="flex items-center space-x-2">
-            <History className="h-4 w-4" />
-            <span>Local History</span>
+          <TabsTrigger value="history" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-3 text-sm font-medium transition-all">
+            <History className="mr-2 h-4 w-4" />
+            Local History
           </TabsTrigger>
-          <TabsTrigger value="saved" className="flex items-center space-x-2">
-            <Save className="h-4 w-4" />
-            <span>Saved Searches</span>
+          <TabsTrigger value="saved" className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-3 text-sm font-medium transition-all">
+            <Save className="mr-2 h-4 w-4" />
+            Saved Searches
           </TabsTrigger>
         </TabsList>
 
