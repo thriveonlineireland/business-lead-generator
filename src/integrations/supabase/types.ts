@@ -339,7 +339,12 @@ export type Database = {
           encrypted_firecrawl_api_key: string | null
           encrypted_google_places_api_key: string | null
           firecrawl_api_key: string | null
+          free_searches_used: number | null
           id: string
+          last_search_reset: string | null
+          stripe_customer_id: string | null
+          subscription_end: string | null
+          subscription_status: string | null
           updated_at: string
           user_id: string
         }
@@ -350,7 +355,12 @@ export type Database = {
           encrypted_firecrawl_api_key?: string | null
           encrypted_google_places_api_key?: string | null
           firecrawl_api_key?: string | null
+          free_searches_used?: number | null
           id?: string
+          last_search_reset?: string | null
+          stripe_customer_id?: string | null
+          subscription_end?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -361,7 +371,12 @@ export type Database = {
           encrypted_firecrawl_api_key?: string | null
           encrypted_google_places_api_key?: string | null
           firecrawl_api_key?: string | null
+          free_searches_used?: number | null
           id?: string
+          last_search_reset?: string | null
+          stripe_customer_id?: string | null
+          subscription_end?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -410,8 +425,11 @@ export type Database = {
           email: string
           id: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
           subscribed: boolean
           subscription_end: string | null
+          subscription_status: string | null
           subscription_tier: string | null
           updated_at: string
           user_id: string | null
@@ -422,8 +440,11 @@ export type Database = {
           email: string
           id?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           subscribed?: boolean
           subscription_end?: string | null
+          subscription_status?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string | null
@@ -434,8 +455,11 @@ export type Database = {
           email?: string
           id?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           subscribed?: boolean
           subscription_end?: string | null
+          subscription_status?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string | null
@@ -447,7 +471,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_make_free_search: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_premium_user: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      reset_monthly_searches: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
