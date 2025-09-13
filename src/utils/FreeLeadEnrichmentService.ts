@@ -17,7 +17,7 @@ export class FreeLeadEnrichmentService {
         Promise.race([
           this.enrichSingleLead(lead),
           new Promise<BusinessLead>((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout')), 8000)
+            setTimeout(() => reject(new Error('Timeout')), 12000) // Increased to 12s
           )
         ]).catch(() => lead) // Return original on error
       );
@@ -54,7 +54,7 @@ export class FreeLeadEnrichmentService {
 
       // Set overall timeout for this lead
       const timeoutPromise = new Promise<BusinessLead>((_, reject) => 
-        setTimeout(() => reject(new Error('Lead enrichment timeout')), 4000)
+        setTimeout(() => reject(new Error('Lead enrichment timeout')), 8000) // Increased to 8s
       );
 
       const enrichmentPromise = this.performEnrichment(lead);
@@ -79,13 +79,47 @@ export class FreeLeadEnrichmentService {
   }
 
   /**
+   * Performs basic enrichment using business name patterns and known conventions
+   */
+  private static performBasicEnrichment(lead: BusinessLead): Partial<BusinessLead> {
+    const result: Partial<BusinessLead> = {};
+    
+    if (!lead.email && lead.name) {
+      // Try to guess common email patterns
+      const businessName = lead.name.toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, '')
+        .replace(/\b(llc|inc|corp|company|ltd|limited|restaurant|cafe|coffee|shop|store|bar|pub)\b/g, '');
+      
+      // Common email patterns for Irish businesses
+      const emailGuesses = [
+        `info@${businessName}.ie`,
+        `info@${businessName}.com`,
+        `contact@${businessName}.ie`,
+        `hello@${businessName}.ie`
+      ];
+      
+      // Don't actually assign guessed emails as they might be wrong
+      // This is just a placeholder for future enhancement
+    }
+    
+    return result;
+  }
+
+  /**
    * Performs the actual enrichment logic
    */
   private static async performEnrichment(lead: BusinessLead): Promise<BusinessLead> {
     let enrichedLead = { ...lead };
 
-    // 1. Try to find contact info from existing website (if available)
-    if (lead.website && (!lead.email || !lead.phone)) {
+    // 1. First try basic enrichment from existing data
+    if (!lead.email || !lead.phone) {
+      const basicEnrichment = this.performBasicEnrichment(lead);
+      enrichedLead = this.mergeContactData(enrichedLead, basicEnrichment);
+    }
+
+    // 2. Try to find contact info from existing website (if available)
+    if (lead.website && (!enrichedLead.email || !enrichedLead.phone)) {
       const websiteData = await this.extractFromWebsite(lead.website);
       enrichedLead = this.mergeContactData(enrichedLead, websiteData);
       
@@ -95,7 +129,7 @@ export class FreeLeadEnrichmentService {
       }
     }
 
-    // 2. Only try website guessing if we still need contact info and don't have a website
+    // 3. Only try website guessing if we still need contact info and don't have a website
     if (!enrichedLead.website && (!enrichedLead.email || !enrichedLead.phone)) {
       const guessedWebsite = await this.guessBusinessWebsite(lead.name);
       if (guessedWebsite) {
@@ -114,37 +148,64 @@ export class FreeLeadEnrichmentService {
    */
   private static async extractFromWebsite(website: string): Promise<Partial<BusinessLead>> {
     try {
-      // Use a free CORS proxy service
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(website)}`;
+      // Try multiple CORS proxy services for better reliability
+      const proxyServices = [
+        `https://api.allorigins.win/get?url=${encodeURIComponent(website)}`,
+        `https://corsproxy.io/?${encodeURIComponent(website)}`,
+        `https://cors-anywhere.herokuapp.com/${website}`
+      ];
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced to 3s
-      
-      const response = await fetch(proxyUrl, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json'
+      // Use the first available proxy
+      for (const proxyUrl of proxyServices) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased to 5s
+          
+          const response = await fetch(proxyUrl, {
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json, text/html, */*',
+              'User-Agent': 'Mozilla/5.0 (compatible; LeadBot/1.0)'
+            }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            continue; // Try next proxy
+          }
+
+          let content = '';
+          const contentType = response.headers.get('content-type') || '';
+          
+          if (contentType.includes('application/json')) {
+            const data = await response.json();
+            content = data.contents || data.data || '';
+          } else {
+            content = await response.text();
+          }
+
+          if (!content || content.length < 100) {
+            continue; // Try next proxy
+          }
+
+          // Limit content size and extract contact info
+          const limitedContent = content.substring(0, 100000); // Increased limit
+          const contactInfo = this.extractContactInfoFromText(limitedContent);
+          
+          if (contactInfo.email || contactInfo.phone) {
+            console.log(`✅ Successfully extracted from ${website} using ${proxyUrl.split('?')[0]}`);
+            return contactInfo;
+          }
+          
+        } catch (proxyError) {
+          console.warn(`❌ Proxy failed: ${proxyUrl.split('?')[0]} - ${proxyError.message}`);
+          continue; // Try next proxy
         }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        console.warn(`⚠️ Failed to fetch ${website}: ${response.status}`);
-        return {};
       }
 
-      const data = await response.json();
-      const content = data.contents || '';
-
-      if (!content) {
-        console.warn(`⚠️ No content from ${website}`);
-        return {};
-      }
-
-      // Limit content size to prevent timeout
-      const limitedContent = content.substring(0, 50000); // Limit to first 50k chars
-      return this.extractContactInfoFromText(limitedContent);
+      console.warn(`⚠️ All proxies failed for ${website}`);
+      return {};
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -262,24 +323,34 @@ export class FreeLeadEnrichmentService {
   private static extractContactInfoFromText(text: string): Partial<BusinessLead> {
     const result: Partial<BusinessLead> = {};
 
-    // Enhanced email patterns
+    // Enhanced email patterns - more comprehensive
     const emailPatterns = [
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
-      /mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})/gi,
-      /"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})"/gi,
-      /email[:\s]+([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})/gi,
-      /contact[:\s]+([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})/gi
+      /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b/gi,
+      /mailto:([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})"/gi,
+      /'([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})'/gi,
+      /email[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /contact[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /info[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /enquiries[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /reservations[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /bookings[:\s]*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})/gi,
+      /href="mailto:([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,})"/gi
     ];
 
-    // Enhanced phone patterns (international support)
+    // Enhanced phone patterns (international support + Irish numbers)
     const phonePatterns = [
+      /\+353[-.\s]?\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g, // Irish format +353
       /\+\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{0,4}/g,
       /\(\d{3}\)\s*\d{3}[-.\s]\d{4}/g,
       /\d{3}[-.\s]\d{3}[-.\s]\d{4}/g,
+      /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g, // Irish mobile/landline format
       /\+?[\d\s\-\(\)]{10,}/g,
       /phone[:\s]+([\+\d\s\-\(\)]{10,})/gi,
       /tel[:\s]+([\+\d\s\-\(\)]{10,})/gi,
-      /call[:\s]+([\+\d\s\-\(\)]{10,})/gi
+      /call[:\s]+([\+\d\s\-\(\)]{10,})/gi,
+      /mobile[:\s]+([\+\d\s\-\(\)]{10,})/gi,
+      /contact[:\s]+us[:\s]+([\+\d\s\-\(\)]{10,})/gi
     ];
 
     // Website patterns
