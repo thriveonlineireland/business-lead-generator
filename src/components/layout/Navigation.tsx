@@ -124,7 +124,7 @@ const Navigation = () => {
       <div className="container mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-16 min-w-0">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 group shrink-0">
+          <Link to="/" className="flex items-center space-x-2 group shrink-0 mr-8">
             <Building2 className="h-8 w-8 text-primary group-hover:text-accent transition-colors" />
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               ProspectlyPro
