@@ -21,7 +21,7 @@ const UpgradeToMyLeads = ({ onUpgrade }: UpgradeToMyLeadsProps) => {
       // Call our edge function to create checkout session
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
-          priceId: 'price_1OYourPriceId', // You'll need to create this in Stripe Dashboard
+          priceId: 'price_1S6pan4NzcsVhTOXYVDJAVsc',
           successUrl: `${window.location.origin}/history?upgraded=true`,
           cancelUrl: `${window.location.origin}/history?upgrade=cancelled`,
         },
