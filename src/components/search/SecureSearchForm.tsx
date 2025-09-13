@@ -139,11 +139,17 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         });
       } else {
         console.error('❌ Search failed:', data?.error || 'No data returned');
-        toast({
-          title: "Search Failed",
-          description: data?.error || 'No results found',
-          variant: "destructive",
-        });
+        if (data?.requiresUpgrade) {
+          toast({
+            title: "Upgrade Required",
+            description: data.error || 'Free search limit reached. Upgrade to access unlimited searches and full results.',
+          });
+        } else {
+          toast({
+            title: "No Results",
+            description: data?.error || 'No results found',
+          });
+        }
       }
     } catch (error) {
       console.error('❌ Search failed with exception:', error);

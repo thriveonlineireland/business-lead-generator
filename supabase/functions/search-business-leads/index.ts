@@ -123,7 +123,7 @@ serve(async (req) => {
                     requiresUpgrade: true
                   }),
                   { 
-                    status: 403,
+                    status: 200,
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                   }
                 );
