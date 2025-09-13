@@ -39,22 +39,58 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         const userId = session.metadata?.user_id;
+        const purchaseType = session.metadata?.type;
         
         if (!userId) {
           console.error('No user_id in session metadata');
           break;
         }
 
-        // Update user subscription status
-        await supabase
-          .from('profiles')
-          .update({
-            subscription_status: 'active',
-            subscription_end: null, // For monthly subscriptions, we'll update this on cancellation
-          })
-          .eq('user_id', userId);
+        // Handle lead purchase
+        if (purchaseType === 'lead_purchase') {
+          const leadCount = session.metadata?.lead_count;
+          const searchDataString = session.metadata?.search_data;
+          
+          if (!searchDataString) {
+            console.error('No search data in session metadata');
+            break;
+          }
 
-        console.log('Updated subscription for user:', userId);
+          try {
+            const searchData = JSON.parse(searchDataString);
+            
+            // Save the premium search to search_history
+            const { error } = await supabase.from('search_history').insert({
+              user_id: userId,
+              query: searchData.search_query,
+              location: searchData.location,
+              business_type: searchData.business_type,
+              results_count: parseInt(leadCount) || 0,
+              is_premium: true,
+              leads: JSON.parse(searchData.search_results)
+            });
+
+            if (error) {
+              console.error('Error saving premium search:', error);
+            } else {
+              console.log('Saved premium search for user:', userId, 'with', leadCount, 'leads');
+            }
+          } catch (parseError) {
+            console.error('Error parsing search data:', parseError);
+          }
+        } else {
+          // Handle subscription checkout (existing logic)
+          // Update user subscription status
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_status: 'active',
+              subscription_end: null, // For monthly subscriptions, we'll update this on cancellation
+            })
+            .eq('user_id', userId);
+
+          console.log('Updated subscription for user:', userId);
+        }
         break;
       }
 

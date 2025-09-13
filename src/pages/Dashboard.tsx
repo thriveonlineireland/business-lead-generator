@@ -24,6 +24,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchResults, setSearchResults] = useState<BusinessLead[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchStats, setSearchStats] = useState<{
     totalFound: number;
     searchTime: number;
@@ -191,35 +192,63 @@ const Dashboard = () => {
     }
 
     try {
-      // Save the search as premium with lead data
-      const lastSearchQuery = `${currentSearchParams.businessType} in ${currentSearchParams.location}`;
+      setLoading(true);
       
-      const { error } = await supabase.from('search_history').insert({
+      // Determine price based on lead count
+      let priceId: string;
+      let priceAmount: number;
+      
+      if (leadCount <= 100) {
+        priceId = 'price_1S6pan4NzcsVhTOXYVDJAVsc'; // €5 for up to 100 leads
+        priceAmount = 5;
+      } else if (leadCount <= 500) {
+        priceId = 'price_1S6pan4NzcsVhTOXYVDJAVsc'; // €15 for up to 500 leads (need to create this price)
+        priceAmount = 15;
+      } else {
+        priceId = 'price_1S6pan4NzcsVhTOXYVDJAVsc'; // €25 for up to 1000 leads (need to create this price)
+        priceAmount = 25;
+      }
+
+      // Create metadata for the purchase
+      const purchaseMetadata = {
+        type: 'lead_purchase',
         user_id: user?.id,
-        query: lastSearchQuery,
+        search_query: `${currentSearchParams.businessType} in ${currentSearchParams.location}`,
         location: currentSearchParams.location,
         business_type: currentSearchParams.businessType,
-        results_count: searchResults.length,
-        is_premium: true,
-        leads: JSON.parse(JSON.stringify(searchResults)) // Convert to JSON-compatible format
+        lead_count: leadCount,
+        search_results: JSON.stringify(searchResults)
+      };
+
+      // Call edge function to create one-time payment checkout session
+      const { data, error } = await supabase.functions.invoke('create-lead-checkout', {
+        body: {
+          priceId,
+          leadCount,
+          amount: priceAmount,
+          searchData: purchaseMetadata,
+          successUrl: `${window.location.origin}/dashboard?payment=success&leads=purchased`,
+          cancelUrl: `${window.location.origin}/dashboard?payment=cancelled`,
+        },
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Premium Access Granted! 🎉",
-        description: `Full access to all ${searchResults.length} leads has been saved to your history.`,
-        duration: 5000,
-      });
-      
-      setShowUpgradeModal(false);
+      if (data?.sessionUrl) {
+        // Redirect to Stripe checkout
+        window.location.href = data.sessionUrl;
+      } else {
+        throw new Error('No checkout session URL received');
+      }
     } catch (error) {
-      console.error('Error saving premium search:', error);
+      console.error('Lead purchase error:', error);
       toast({
-        title: "Error",
-        description: "Failed to save premium search. Please try again.",
+        title: "Purchase Failed",
+        description: "Unable to start checkout process. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
