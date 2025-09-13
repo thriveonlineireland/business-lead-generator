@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StorageService, SearchHistory, SavedSearch } from "@/utils/StorageService";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { History, Save, Search, Trash2, Download, Calendar, MapPin, Building, AlertCircle, Eye, Crown } from "lucide-react";
