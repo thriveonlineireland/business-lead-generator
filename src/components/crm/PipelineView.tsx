@@ -322,17 +322,76 @@ const PipelineView = () => {
         </div>
         <div className="flex gap-8 text-base">
           <div className="text-center">
-            <div className="font-bold text-2xl">{leads.length}</div>
-            <div className="text-muted-foreground">Total Leads</div>
+            <div className="font-bold text-2xl">{filteredLeads.length}</div>
+            <div className="text-muted-foreground">Filtered Leads</div>
           </div>
           <div className="text-center">
             <div className="font-bold text-2xl text-green-600">
-              €{leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
+              €{filteredLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
             </div>
             <div className="text-muted-foreground">Total Value</div>
           </div>
         </div>
       </div>
+
+      {/* Desktop Filters */}
+      <Card className="border-0 shadow-soft">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-sm">Filters:</span>
+            </div>
+            
+            <div className="relative min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-9"
+              />
+            </div>
+            
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-[150px] h-9">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">Date Created</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="estimated_value">Value</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+              className="h-9 px-3"
+            >
+              {sortOrder === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+            </Button>
+            
+            <div className="text-sm text-muted-foreground ml-auto">
+              {filteredLeads.length} of {leads.length} leads
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {leads.length > 0 ? (
         <DragDropContext onDragEnd={onDragEnd}>

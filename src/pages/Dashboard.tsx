@@ -271,34 +271,52 @@ const Dashboard = () => {
               </TabsList>
               
               <TabsContent value="search" className="space-y-6 mt-6">
-                <QuickActions onQuickSearch={handleQuickSearch} />
-                <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
+                {/* Mobile Quick Actions - Redesigned */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-base">Quick Search</h3>
+                  <QuickActions onQuickSearch={handleQuickSearch} />
+                </div>
+                
+                {/* Mobile Search Form */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-base">Custom Search</h3>
+                  <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
+                </div>
                 
                 {searchStats && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <Card className="border-0 shadow-soft">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-xl font-bold text-primary">{searchStats.totalFound}</div>
-                        <div className="text-xs text-muted-foreground">Leads</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-soft">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-xl font-bold text-success">{searchStats.searchTime.toFixed(1)}s</div>
-                        <div className="text-xs text-muted-foreground">Time</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-soft">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-xl font-bold text-accent">{searchStats.creditsUsed}</div>
-                        <div className="text-xs text-muted-foreground">Credits</div>
-                      </CardContent>
-                    </Card>
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-base">Search Results</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Card className="border-0 shadow-soft bg-primary/5">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-xl font-bold text-primary">{searchStats.totalFound}</div>
+                          <div className="text-xs text-muted-foreground">Leads Found</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-soft bg-success/5">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-xl font-bold text-success">{searchStats.searchTime.toFixed(1)}s</div>
+                          <div className="text-xs text-muted-foreground">Search Time</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-soft bg-accent/5">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-xl font-bold text-accent">{searchStats.creditsUsed}</div>
+                          <div className="text-xs text-muted-foreground">Credits Used</div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
                 )}
 
                 {searchResults.length > 0 ? (
                   <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-base">Lead Results</h3>
+                      <Badge variant="secondary" className="text-sm">
+                        {searchResults.length} leads
+                      </Badge>
+                    </div>
                     <FreemiumResultsTable 
                       leads={searchResults} 
                       onUpgrade={() => setShowUpgradeModal(true)}
@@ -319,15 +337,28 @@ const Dashboard = () => {
                     />
                   </div>
                 ) : (
-                  <Card className="border-0 shadow-soft">
+                  <Card className="border-0 shadow-soft bg-muted/20 border-dashed">
                     <CardContent className="p-8 text-center">
-                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Search className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <h3 className="text-lg font-medium mb-2">Start Your Search</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Tap a quick action above or use the search form
+                      <h3 className="text-lg font-medium mb-2">Ready to Find Leads?</h3>
+                      <p className="text-muted-foreground text-sm mb-4">
+                        Use quick actions above or create a custom search
                       </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Auto-focus the search form
+                          const searchInput = document.querySelector('input[placeholder*="location"]');
+                          if (searchInput) {
+                            (searchInput as HTMLInputElement).focus();
+                          }
+                        }}
+                      >
+                        Start Searching
+                      </Button>
                     </CardContent>
                   </Card>
                 )}
@@ -388,30 +419,108 @@ const Dashboard = () => {
         </TabsList>
 
         <TabsContent value="search" className="space-y-8">
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <QuickActions onQuickSearch={handleQuickSearch} />
-              <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
+          <div className="grid lg:grid-cols-4 gap-8">
+            <div className="lg:col-span-3 space-y-6">
+              {/* Desktop Search Section */}
+              <Card className="border-0 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Search className="h-5 w-5" />
+                    Lead Search
+                  </CardTitle>
+                  <CardDescription>
+                    Use quick actions or create a custom search to find business leads
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-3">Quick Search</h3>
+                    <QuickActions onQuickSearch={handleQuickSearch} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-3">Custom Search</h3>
+                    <SecureSearchForm ref={searchFormRef} onResults={handleSearchResults} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Desktop Results Section */}
+              {searchResults.length > 0 && (
+                <Card className="border-0 shadow-soft">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Search Results
+                      </CardTitle>
+                      <Badge variant="secondary" className="text-sm">
+                        {searchResults.length} leads found
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <FreemiumResultsTable 
+                      leads={searchResults} 
+                      onUpgrade={() => setShowUpgradeModal(true)}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {searchResults.length === 0 && (
+                <Card className="border-0 shadow-soft bg-muted/20 border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Search className="h-10 w-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-medium mb-3">Ready to Find Business Leads?</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                      Start with a quick search or create a custom search to find leads in your target market
+                    </p>
+                    <Button 
+                      onClick={() => {
+                        const searchInput = document.querySelector('input[placeholder*="location"]');
+                        if (searchInput) {
+                          (searchInput as HTMLInputElement).focus();
+                        }
+                      }}
+                    >
+                      Start Searching
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
             
             <div className="space-y-6">
               {searchStats && (
                 <Card className="border-0 shadow-soft">
                   <CardHeader>
-                    <CardTitle className="text-lg">Search Statistics</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Search Stats
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Leads Found</span>
-                      <span className="text-2xl font-bold text-primary">{searchStats.totalFound}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Search Time</span>
-                      <span className="text-lg font-semibold text-success">{searchStats.searchTime.toFixed(1)}s</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Credits Used</span>
-                      <span className="text-lg font-semibold text-accent">{searchStats.creditsUsed}</span>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-primary/5 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Leads Found</span>
+                          <span className="text-2xl font-bold text-primary">{searchStats.totalFound}</span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-success/5 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Search Time</span>
+                          <span className="text-lg font-semibold text-success">{searchStats.searchTime.toFixed(1)}s</span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-accent/5 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Credits Used</span>
+                          <span className="text-lg font-semibold text-accent">{searchStats.creditsUsed}</span>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -419,55 +528,40 @@ const Dashboard = () => {
               
               <Card className="border-0 shadow-soft">
                 <CardHeader>
-                  <CardTitle className="text-lg">Tips</CardTitle>
+                  <CardTitle className="text-lg">Search Tips</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <p>• Use specific business types for better results</p>
-                  <p>• Try nearby cities to expand your search</p>
-                  <p>• Export leads to CSV for external tools</p>
+                <CardContent className="space-y-3">
+                  <div className="text-sm space-y-2">
+                    <p className="text-muted-foreground">
+                      💡 <strong>Be specific:</strong> Use exact locations and business types for better results
+                    </p>
+                    <p className="text-muted-foreground">
+                      🎯 <strong>Quick actions:</strong> Try the preset searches for common industries
+                    </p>
+                    <p className="text-muted-foreground">
+                      📊 <strong>Export leads:</strong> Save your results for follow-up campaigns
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
           </div>
 
-          {searchResults.length > 0 ? (
-            <div className="space-y-6">
-              <FreemiumResultsTable 
-                leads={searchResults} 
-                onUpgrade={() => setShowUpgradeModal(true)}
-              />
-              <ExpandSearchDialog
-                open={showExpandDialog}
-                onOpenChange={setShowExpandDialog}
-                onExpandSearch={handleExpandSearch}
-                currentCount={searchResults.length}
-                location={currentSearchParams?.location || ''}
-                businessType={currentSearchParams?.businessType || ''}
-              />
-              <UpgradeModal
-                isOpen={showUpgradeModal}
-                onClose={() => setShowUpgradeModal(false)}
-                onPurchase={handleUpgrade}
-                hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(25, Math.floor(searchResults.length * 0.1))))}
-              />
-            </div>
-          ) : (
-            <Card className="border-0 shadow-soft">
-              <CardContent className="p-12 text-center">
-                <div className="space-y-4">
-                  <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <Search className="h-10 w-10 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-medium mb-2">Ready to Find Business Leads</h3>
-                    <p className="text-muted-foreground">
-                      Use the search form or try one of the quick actions to get started with your lead generation.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Dialogs */}
+          <ExpandSearchDialog
+            open={showExpandDialog}
+            onOpenChange={setShowExpandDialog}
+            onExpandSearch={handleExpandSearch}
+            currentCount={searchResults.length}
+            location={currentSearchParams?.location || ''}
+            businessType={currentSearchParams?.businessType || ''}
+          />
+          <UpgradeModal
+            isOpen={showUpgradeModal}
+            onClose={() => setShowUpgradeModal(false)}
+            onPurchase={handleUpgrade}
+            hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(25, Math.floor(searchResults.length * 0.1))))}
+          />
         </TabsContent>
 
         <TabsContent value="manage">
