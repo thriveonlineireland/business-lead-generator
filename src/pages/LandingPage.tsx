@@ -216,10 +216,13 @@ const LandingPage = () => {
                 variant="outline" 
                 size="lg" 
                 className="text-lg px-8 py-4"
-                onClick={() => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank')}
+                onClick={() => {
+                  const featuresSection = document.querySelector('section:nth-of-type(2)');
+                  featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
               >
-                <Play className="mr-3 h-6 w-6" />
-                Watch Demo
+                <ArrowDown className="mr-3 h-6 w-6" />
+                Learn More
               </EnhancedButton>
             </div>
 
