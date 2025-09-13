@@ -121,8 +121,8 @@ const Navigation = () => {
 
   return (
     <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+      <div className="container mx-auto px-2 sm:px-4">
+        <div className="flex items-center justify-between h-16 min-w-0">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group shrink-0">
             <Building2 className="h-8 w-8 text-primary group-hover:text-accent transition-colors" />
@@ -132,7 +132,7 @@ const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-4 min-w-0">
             {/* Navigation Links */}
             <div className="flex space-x-1">
               {navigationItems.map((item) => {

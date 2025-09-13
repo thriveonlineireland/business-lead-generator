@@ -212,7 +212,13 @@ const LandingPage = () => {
                   </Link>
                 </EnhancedButton>
               )}
-              <EnhancedButton variant="outline" size="lg" className="text-lg px-8 py-4">
+              <EnhancedButton 
+                variant="outline" 
+                size="lg" 
+                className="text-lg px-8 py-4"
+                onClick={() => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank')}
+              >
+                <Play className="mr-3 h-6 w-6" />
                 Watch Demo
               </EnhancedButton>
             </div>
