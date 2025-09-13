@@ -132,9 +132,9 @@ const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-2 lg:space-x-4 min-w-0">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-4 min-w-0 flex-1">
             {/* Navigation Links */}
-            <div className="flex space-x-1">
+            <div className="flex space-x-1 flex-1 justify-center">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -157,24 +157,25 @@ const Navigation = () => {
             </div>
 
             {/* Desktop Auth Section */}
-            {!isLoading && (
-              <>
-                {user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src="" />
-                          <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                            {getUserInitials(user.email || "U")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium hidden lg:block">
-                          {user.email}
-                        </span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
+            <div className="flex items-center space-x-2 shrink-0">
+              {!isLoading && (
+                <>
+                  {user ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src="" />
+                            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                              {getUserInitials(user.email || "U")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium hidden lg:block max-w-[120px] truncate">
+                            {user.email}
+                          </span>
+                        </button>
+                      </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 bg-card border shadow-lg z-[60] mr-2">
                       <DropdownMenuItem asChild>
                         <Link to="/settings" className="flex items-center space-x-2 cursor-pointer">
                           <User className="h-4 w-4" />
@@ -201,16 +202,17 @@ const Navigation = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                ) : (
-                  <Link to="/auth">
-                    <EnhancedButton variant="outline" size="sm" className="flex items-center space-x-2">
-                      <LogIn className="h-4 w-4" />
-                      <span className="hidden sm:inline">Sign In</span>
-                    </EnhancedButton>
-                  </Link>
-                )}
-              </>
-            )}
+                  ) : (
+                    <Link to="/auth">
+                      <EnhancedButton variant="outline" size="sm" className="flex items-center space-x-2">
+                        <LogIn className="h-4 w-4" />
+                        <span className="hidden sm:inline">Sign In</span>
+                      </EnhancedButton>
+                    </Link>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Mobile Navigation */}
