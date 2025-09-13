@@ -175,7 +175,7 @@ const SearchHistoryPage = () => {
 
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background overflow-y-auto">
         {/* Mobile Header */}
         <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10 p-4">
           <h1 className="text-xl font-bold">Search History</h1>
@@ -323,28 +323,29 @@ const SearchHistoryPage = () => {
 
   // Desktop Layout
   return (
-    <div className="container mx-auto p-8 space-y-8 animate-fade-in max-w-7xl">
+    <div className="min-h-0 bg-background overflow-y-auto">
       {/* Desktop Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-        <div className="space-y-2">
+      <div className="container mx-auto p-8 space-y-8 animate-fade-in max-w-7xl">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
           <h1 className="text-4xl font-bold">Search History & Saved Searches</h1>
-          <p className="text-xl text-muted-foreground">
-            View your past searches and manage saved lead collections
-          </p>
-        </div>
+            <p className="text-xl text-muted-foreground">
+              View your past searches and manage saved lead collections
+            </p>
+          </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search history..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 w-80 h-12"
-            />
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search history..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 w-80 h-12"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Authentication Notice */}
       {!user && !authLoading && (
@@ -743,6 +744,7 @@ const SearchHistoryPage = () => {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };
