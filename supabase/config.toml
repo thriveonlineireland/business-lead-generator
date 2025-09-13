@@ -67,3 +67,9 @@ inspector_port = 54331
 
 [functions.search-business-leads]
 verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import SearchHistory from "./pages/SearchHistory";
+import MyLeads from "./pages/MyLeads";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import EmailConfirmation from "./pages/EmailConfirmation";
@@ -31,7 +32,7 @@ const App = () => (
             <Route path="/auth/confirm" element={<EmailConfirmation />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/history" element={<SearchHistory />} />
+            <Route path="/history" element={<MyLeads />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

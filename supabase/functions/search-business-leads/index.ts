@@ -65,6 +65,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     let userId = null;
+    let isPremiumUser = false;
     
     if (authHeader && authHeader !== 'Bearer guest') {
       try {
@@ -73,6 +74,51 @@ serve(async (req) => {
         if (!authError && userData.user) {
           userId = userData.user.id;
           console.log(`👤 Authenticated user: ${userData.user.email}`);
+          
+          // Check user subscription status and usage limits
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('subscription_status, free_searches_used, last_search_reset')
+            .eq('user_id', userId)
+            .single();
+
+          isPremiumUser = profile?.subscription_status === 'active';
+          
+          // Check usage limits for free users
+          if (!isPremiumUser) {
+            const today = new Date().toISOString().split('T')[0];
+            let currentUsage = profile?.free_searches_used || 0;
+            
+            // Reset counter if it's a new day
+            if (profile?.last_search_reset !== today) {
+              await supabase
+                .from('profiles')
+                .update({
+                  free_searches_used: 0,
+                  last_search_reset: today
+                })
+                .eq('user_id', userId);
+              currentUsage = 0;
+            }
+            
+            // Check if user has reached their limit
+            if (currentUsage >= 3) {
+              console.log(`❌ User ${userId} has reached their free search limit`);
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  error: 'You have reached your monthly limit of 3 free searches. Upgrade to Premium for unlimited searches.',
+                  data: [],
+                  totalFound: 0,
+                  requiresUpgrade: true
+                }),
+                { 
+                  status: 403,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+              );
+            }
+          }
         }
       } catch (error) {
         console.log('⚠️ Auth token invalid, proceeding as guest');
@@ -87,45 +133,80 @@ serve(async (req) => {
     
     console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
-    // Save leads to database only for authenticated users
-    if (leads.length > 0 && userId) {
-      console.log(`💾 Saving ${leads.length} leads to database for user ${userId}`);
-      
-      const leadsData = leads.map(lead => ({
-        user_id: userId,
-        name: lead.name,
-        address: lead.address,
-        phone: lead.phone,
-        website: lead.website,
-        email: lead.email,
-        business_type: businessType,
-        location_searched: location,
-        rating: lead.rating,
-        google_place_id: null // OSM doesn't have Google place IDs
-      }));
-
-      const { error } = await supabase
-        .from('business_leads')
-        .insert(leadsData);
-
-      if (error) {
-        console.error('❌ Error saving leads to database:', error);
-      } else {
-        console.log('✅ Successfully saved leads to database');
-      }
-    } else if (leads.length > 0) {
-      console.log('🔓 Guest search - results not saved to database');
+    // Apply usage limits for free users (10% of results, max 25)
+    let finalResults = leads;
+    if (!isPremiumUser && leads.length > 0) {
+      const limitedCount = Math.min(Math.ceil(leads.length * 0.1), 25);
+      finalResults = leads.slice(0, limitedCount);
+      console.log(`📊 Limited results for free user: ${finalResults.length}/${leads.length}`);
     }
 
-    console.log(`📤 Returning response with ${leads.length} leads`);
+    // Save leads to database and search history for authenticated users
+    if (userId) {
+      console.log(`💾 Saving leads and search history for user ${userId}`);
+      
+      // Save search history
+      await supabase
+        .from('search_history')
+        .insert({
+          user_id: userId,
+          query: `${businessType} in ${location}`,
+          location: location,
+          business_type: businessType,
+          results_count: leads.length,
+          leads: finalResults,
+          is_premium: isPremiumUser
+        });
+
+      // Increment usage counter for free users
+      if (!isPremiumUser) {
+        await supabase
+          .from('profiles')
+          .update({
+            free_searches_used: (await supabase
+              .from('profiles')
+              .select('free_searches_used')
+              .eq('user_id', userId)
+              .single()
+            ).data?.free_searches_used + 1 || 1
+          })
+          .eq('user_id', userId);
+      }
+
+      // Save individual leads to business_leads table
+      if (leads.length > 0) {
+        const leadsData = leads.map(lead => ({
+          user_id: userId,
+          name: lead.name,
+          address: lead.address,
+          phone: lead.phone,
+          website: lead.website,
+          email: lead.email,
+          business_type: businessType,
+          location_searched: location,
+          rating: lead.rating,
+          google_place_id: null
+        }));
+
+        await supabase
+          .from('business_leads')
+          .insert(leadsData);
+      }
+    }
+
+    console.log(`📤 Returning response with ${finalResults.length} leads`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        data: leads,
+        data: finalResults,
         totalFound: leads.length,
-        canExpandSearch: leads.length >= 450, // Suggest expanding if we're close to limit
-        message: `Found ${leads.length} business leads using free data sources`
+        returnedCount: finalResults.length,
+        isPremium: isPremiumUser,
+        canExpandSearch: leads.length >= 450,
+        message: isPremiumUser 
+          ? `Found ${leads.length} business leads` 
+          : `Found ${leads.length} leads, showing ${finalResults.length} (upgrade for full results)`
       }),
       { 
         headers: { 
