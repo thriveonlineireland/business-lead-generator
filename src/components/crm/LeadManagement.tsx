@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Plus, Phone, Mail, Globe, MapPin, Calendar, Tag, MessageSquare, Users, ArrowLeft } from "lucide-react";
+import { Plus, Phone, Mail, Globe, MapPin, Calendar, Tag, MessageSquare, Users, ArrowLeft, Search, Filter, SortAsc, SortDesc } from "lucide-react";
 
 interface BusinessLead {
   id: string;
@@ -50,6 +50,7 @@ const LeadManagement = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [leads, setLeads] = useState<BusinessLead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<BusinessLead[]>([]);
   const [selectedLead, setSelectedLead] = useState<BusinessLead | null>(null);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -57,6 +58,13 @@ const LeadManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showLeadDialog, setShowLeadDialog] = useState(false);
   const [showInteractionDialog, setShowInteractionDialog] = useState(false);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // New interaction form
   const [newInteraction, setNewInteraction] = useState({
@@ -73,6 +81,53 @@ const LeadManagement = () => {
       fetchTags();
     }
   }, [user]);
+
+  // Filter leads based on search term, status, and priority
+  useEffect(() => {
+    let filtered = [...leads];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(lead => 
+        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.business_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.address?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(lead => lead.status === statusFilter);
+    }
+
+    // Priority filter  
+    if (priorityFilter !== "all") {
+      filtered = filtered.filter(lead => lead.priority === priorityFilter);
+    }
+
+    // Sort leads
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortBy as keyof BusinessLead];
+      let bValue: any = b[sortBy as keyof BusinessLead];
+      
+      if (sortBy === "estimated_value") {
+        aValue = aValue || 0;
+        bValue = bValue || 0;
+      }
+      
+      if (sortBy === "created_at" || sortBy === "last_contact_date") {
+        aValue = new Date(aValue || 0);
+        bValue = new Date(bValue || 0);
+      }
+
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredLeads(filtered);
+  }, [leads, searchTerm, statusFilter, priorityFilter, sortBy, sortOrder]);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase
@@ -119,7 +174,7 @@ const LeadManagement = () => {
   const fetchLeadTags = async (leadId: string) => {
     const { data, error } = await supabase
       .from('lead_tag_assignments')
-      .select('tag_id, lead_tags(name, color)')
+      .select('tag_id')
       .eq('lead_id', leadId);
 
     if (error) {
@@ -136,7 +191,7 @@ const LeadManagement = () => {
       .eq('id', leadId);
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update lead status", variant: "destructive" });
     } else {
       setLeads(leads.map(lead => 
         lead.id === leadId ? { ...lead, status } : lead
@@ -152,7 +207,7 @@ const LeadManagement = () => {
       .eq('id', leadId);
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update priority", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update lead priority", variant: "destructive" });
     } else {
       setLeads(leads.map(lead => 
         lead.id === leadId ? { ...lead, priority } : lead
@@ -173,25 +228,16 @@ const LeadManagement = () => {
         subject: newInteraction.subject,
         content: newInteraction.content,
         outcome: newInteraction.outcome,
-        scheduled_follow_up: newInteraction.followUp ? new Date(newInteraction.followUp).toISOString() : null
+        scheduled_follow_up: newInteraction.followUp || null
       });
 
     if (error) {
       toast({ title: "Error", description: "Failed to add interaction", variant: "destructive" });
     } else {
-      toast({ title: "Success", description: "Interaction added" });
-      fetchLeadInteractions(selectedLead.id);
-      setNewInteraction({ type: "email", subject: "", content: "", outcome: "", followUp: "" });
+      toast({ title: "Success", description: "Interaction added successfully" });
       setShowInteractionDialog(false);
-
-      // Update last contact date
-      await supabase
-        .from('business_leads')
-        .update({ 
-          last_contact_date: new Date().toISOString(),
-          next_follow_up: newInteraction.followUp ? new Date(newInteraction.followUp).toISOString() : null
-        })
-        .eq('id', selectedLead.id);
+      setNewInteraction({ type: "email", subject: "", content: "", outcome: "", followUp: "" });
+      fetchLeadInteractions(selectedLead.id);
     }
   };
 
@@ -225,15 +271,78 @@ const LeadManagement = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 bg-background/80 backdrop-blur border-b border-border/50 z-10 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold">Lead Management</h1>
-              <p className="text-sm text-muted-foreground">{leads.length} leads total</p>
+              <p className="text-sm text-muted-foreground">{filteredLeads.length} of {leads.length} leads</p>
             </div>
             <Button size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
-              Add Lead
+              Add
             </Button>
+          </div>
+
+          {/* Mobile Filters */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="flex-1 h-10">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date Created</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="estimated_value">Value</SelectItem>
+                  <SelectItem value="last_contact_date">Last Contact</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                className="h-10 px-3"
+              >
+                {sortOrder === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -242,8 +351,8 @@ const LeadManagement = () => {
             <div className="text-center py-12">
               <div className="animate-pulse">Loading leads...</div>
             </div>
-          ) : leads.length > 0 ? (
-            leads.map((lead) => (
+          ) : filteredLeads.length > 0 ? (
+            filteredLeads.map((lead) => (
               <Card key={lead.id} className="border-0 shadow-soft cursor-pointer hover:shadow-medium transition-shadow" onClick={() => selectLead(lead)}>
                 <CardContent className="p-4">
                   <div className="space-y-3">
@@ -251,6 +360,7 @@ const LeadManagement = () => {
                       <h3 className="font-semibold">{lead.name}</h3>
                       <div className="flex gap-1">
                         <Badge className={`text-xs ${getStatusColor(lead.status)}`}>{lead.status}</Badge>
+                        <Badge className={`text-xs ${getPriorityColor(lead.priority)}`}>{lead.priority}</Badge>
                       </div>
                     </div>
                     
@@ -273,12 +383,20 @@ const LeadManagement = () => {
                           <span className="truncate">{lead.address}</span>
                         </div>
                       )}
+                      {lead.business_type && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Tag className="h-3 w-3 text-muted-foreground" />
+                          <span className="capitalize">{lead.business_type}</span>
+                        </div>
+                      )}
                     </div>
-                    
+
                     <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                      <Badge className={`text-xs ${getPriorityColor(lead.priority)}`}>{lead.priority}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </span>
                       {lead.estimated_value && (
-                        <span className="text-sm font-medium text-green-600">
+                        <span className="text-sm font-medium text-success">
                           €{lead.estimated_value.toLocaleString()}
                         </span>
                       )}
@@ -290,42 +408,35 @@ const LeadManagement = () => {
           ) : (
             <div className="text-center py-12">
               <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-medium mb-2">No leads found</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Start by adding your first business lead
+              <h3 className="text-lg font-medium text-foreground mb-2">No leads found</h3>
+              <p className="text-muted-foreground">
+                {searchTerm || statusFilter !== "all" || priorityFilter !== "all" 
+                  ? "Try adjusting your filters" 
+                  : "Add your first lead to get started"}
               </p>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Lead
-              </Button>
             </div>
           )}
         </div>
 
         {/* Mobile Lead Detail Dialog */}
         <Dialog open={showLeadDialog} onOpenChange={setShowLeadDialog}>
-          <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto mx-4">
+          <DialogContent className="max-w-sm mx-4">
             <DialogHeader>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowLeadDialog(false)}
-                  className="p-1 h-8 w-8"
-                >
+              <DialogTitle className="flex items-center justify-between">
+                <span>{selectedLead?.name}</span>
+                <Button variant="ghost" size="sm" onClick={() => setShowLeadDialog(false)}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <DialogTitle className="text-lg truncate">{selectedLead?.name}</DialogTitle>
-              </div>
+              </DialogTitle>
             </DialogHeader>
             
             {selectedLead && (
               <div className="space-y-6">
-                <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium block mb-2">Status</label>
                     <Select value={selectedLead.status} onValueChange={(value) => updateLeadStatus(selectedLead.id, value)}>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className="h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -340,7 +451,7 @@ const LeadManagement = () => {
                   <div>
                     <label className="text-sm font-medium block mb-2">Priority</label>
                     <Select value={selectedLead.priority} onValueChange={(value) => updateLeadPriority(selectedLead.id, value)}>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className="h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -447,14 +558,19 @@ const LeadManagement = () => {
                 <Textarea 
                   value={newInteraction.content} 
                   onChange={(e) => setNewInteraction({...newInteraction, content: e.target.value})}
-                  placeholder="Details"
+                  placeholder="Interaction details..."
                   rows={3}
                 />
               </div>
               
-              <Button onClick={addInteraction} className="w-full h-12">
-                Add Interaction
-              </Button>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setShowInteractionDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={addInteraction} className="flex-1">
+                  Add
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -480,85 +596,189 @@ const LeadManagement = () => {
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        {leads.length > 0 ? (
-          leads.map((lead) => (
-            <Card key={lead.id} className="cursor-pointer hover:shadow-lg transition-all duration-200 border-0 shadow-medium" onClick={() => selectLead(lead)}>
+      {/* Desktop Filters */}
+      <Card className="border-border/50 shadow-soft">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters & Search
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="qualified">Qualified</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date Created</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="estimated_value">Value</SelectItem>
+                  <SelectItem value="last_contact_date">Last Contact</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                className="px-3"
+              >
+                {sortOrder === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>Showing {filteredLeads.length} of {leads.length} leads</span>
+            {(searchTerm || statusFilter !== "all" || priorityFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setPriorityFilter("all");
+                }}
+                className="h-8 px-2 lg:px-3"
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Desktop Leads Grid */}
+      {filteredLeads.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredLeads.map((lead) => (
+            <Card key={lead.id} className="border-border/50 shadow-soft hover:shadow-elegant transition-shadow cursor-pointer" onClick={() => selectLead(lead)}>
               <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-4 flex-1">
-                    <h3 className="font-semibold text-xl">{lead.name}</h3>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-muted-foreground">
-                      {lead.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          <span>{lead.email}</span>
-                        </div>
-                      )}
-                      {lead.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          <span>{lead.phone}</span>
-                        </div>
-                      )}
-                      {lead.website && (
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-4 w-4" />
-                          <span>{lead.website}</span>
-                        </div>
-                      )}
-                      {lead.address && (
-                        <div className="flex items-center gap-2 md:col-span-2 lg:col-span-3">
-                          <MapPin className="h-4 w-4" />
-                          <span>{lead.address}</span>
-                        </div>
-                      )}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-lg">{lead.name}</h3>
+                    <div className="flex gap-2">
+                      <Badge className={`text-xs ${getStatusColor(lead.status)}`}>{lead.status}</Badge>
+                      <Badge className={`text-xs ${getPriorityColor(lead.priority)}`}>{lead.priority}</Badge>
                     </div>
                   </div>
-                  <div className="space-y-3 text-right">
-                    <div className="flex gap-3">
-                      <Badge className={getStatusColor(lead.status)}>{lead.status}</Badge>
-                      <Badge className={getPriorityColor(lead.priority)}>{lead.priority}</Badge>
-                    </div>
-                    {lead.estimated_value && (
-                      <div className="text-xl font-bold text-green-600">
-                        €{lead.estimated_value.toLocaleString()}
+                  
+                  <div className="space-y-3">
+                    {lead.email && (
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate">{lead.email}</span>
                       </div>
+                    )}
+                    {lead.phone && (
+                      <div className="flex items-center gap-3">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{lead.phone}</span>
+                      </div>
+                    )}
+                    {lead.website && (
+                      <div className="flex items-center gap-3">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate">{lead.website}</span>
+                      </div>
+                    )}
+                    {lead.address && (
+                      <div className="flex items-center gap-3">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate">{lead.address}</span>
+                      </div>
+                    )}
+                    {lead.business_type && (
+                      <div className="flex items-center gap-3">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm capitalize">{lead.business_type}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t border-border/50">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(lead.created_at).toLocaleDateString()}
+                    </span>
+                    {lead.estimated_value && (
+                      <span className="text-sm font-semibold text-success">
+                        €{lead.estimated_value.toLocaleString()}
+                      </span>
                     )}
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))
-        ) : (
-          <div className="text-center py-16">
+          ))}
+        </div>
+      ) : (
+        <Card className="border-border/50 shadow-soft">
+          <CardContent className="text-center py-12">
             <Users className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-            <h3 className="text-2xl font-medium mb-4">No leads found</h3>
-            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Start building your customer database by adding your first business lead. Track interactions, manage priorities, and grow your business.
+            <h3 className="text-xl font-semibold text-foreground mb-3">No leads found</h3>
+            <p className="text-muted-foreground mb-6">
+              {searchTerm || statusFilter !== "all" || priorityFilter !== "all" 
+                ? "Try adjusting your filters to see more results" 
+                : "Get started by adding your first business lead"}
             </p>
-            <Button className="gap-2 h-12 px-8">
-              <Plus className="h-5 w-5" />
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
               Add Your First Lead
             </Button>
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Lead Detail Dialog */}
+      {/* Desktop Lead Detail Dialog */}
       <Dialog open={showLeadDialog} onOpenChange={setShowLeadDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedLead?.name}</DialogTitle>
+            <DialogTitle className="text-2xl">{selectedLead?.name}</DialogTitle>
           </DialogHeader>
           
           {selectedLead && (
-            <div className="space-y-6">
-              {/* Lead Details */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Status</label>
+                    <label className="text-sm font-medium block mb-2">Status</label>
                     <Select value={selectedLead.status} onValueChange={(value) => updateLeadStatus(selectedLead.id, value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -573,7 +793,7 @@ const LeadManagement = () => {
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium">Priority</label>
+                    <label className="text-sm font-medium block mb-2">Priority</label>
                     <Select value={selectedLead.priority} onValueChange={(value) => updateLeadPriority(selectedLead.id, value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -587,130 +807,146 @@ const LeadManagement = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {selectedLead.email && <div className="flex items-center gap-2"><Mail className="h-4 w-4" /><span>{selectedLead.email}</span></div>}
-                  {selectedLead.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4" /><span>{selectedLead.phone}</span></div>}
-                  {selectedLead.website && <div className="flex items-center gap-2"><Globe className="h-4 w-4" /><span>{selectedLead.website}</span></div>}
-                  {selectedLead.address && <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><span>{selectedLead.address}</span></div>}
-                  {selectedLead.next_follow_up && (
-                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><span>Follow up: {new Date(selectedLead.next_follow_up).toLocaleDateString()}</span></div>
-                  )}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Contact Information</h3>
+                  <div className="space-y-3">
+                    {selectedLead.email && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <Mail className="h-5 w-5 text-muted-foreground" />
+                        <span>{selectedLead.email}</span>
+                      </div>
+                    )}
+                    {selectedLead.phone && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <Phone className="h-5 w-5 text-muted-foreground" />
+                        <span>{selectedLead.phone}</span>
+                      </div>
+                    )}
+                    {selectedLead.website && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <Globe className="h-5 w-5 text-muted-foreground" />
+                        <span className="break-all">{selectedLead.website}</span>
+                      </div>
+                    )}
+                    {selectedLead.address && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <MapPin className="h-5 w-5 text-muted-foreground" />
+                        <span>{selectedLead.address}</span>
+                      </div>
+                    )}
+                    {selectedLead.business_type && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <Tag className="h-5 w-5 text-muted-foreground" />
+                        <span className="capitalize">{selectedLead.business_type}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Interactions */}
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Interactions</h3>
-                  <Dialog open={showInteractionDialog} onOpenChange={setShowInteractionDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Add Interaction
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Interaction</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium">Type</label>
-                          <Select value={newInteraction.type} onValueChange={(value) => setNewInteraction({...newInteraction, type: value})}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="email">Email</SelectItem>
-                              <SelectItem value="call">Phone Call</SelectItem>
-                              <SelectItem value="meeting">Meeting</SelectItem>
-                              <SelectItem value="note">Note</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm font-medium">Subject</label>
-                          <Input 
-                            value={newInteraction.subject} 
-                            onChange={(e) => setNewInteraction({...newInteraction, subject: e.target.value})}
-                            placeholder="Subject or title"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm font-medium">Content</label>
-                          <Textarea 
-                            value={newInteraction.content} 
-                            onChange={(e) => setNewInteraction({...newInteraction, content: e.target.value})}
-                            placeholder="Details of the interaction"
-                            rows={3}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm font-medium">Outcome</label>
-                          <Input 
-                            value={newInteraction.outcome} 
-                            onChange={(e) => setNewInteraction({...newInteraction, outcome: e.target.value})}
-                            placeholder="Result or next steps"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm font-medium">Follow-up Date</label>
-                          <Input 
-                            type="datetime-local"
-                            value={newInteraction.followUp} 
-                            onChange={(e) => setNewInteraction({...newInteraction, followUp: e.target.value})}
-                          />
-                        </div>
-                        
-                        <Button onClick={addInteraction} className="w-full">
-                          Add Interaction
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {interactions.map((interaction) => (
-                    <Card key={interaction.id}>
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            <span className="font-medium capitalize">{interaction.interaction_type}</span>
-                            {interaction.subject && <span className="text-sm text-muted-foreground">- {interaction.subject}</span>}
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(interaction.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {interaction.content && <p className="text-sm mb-2">{interaction.content}</p>}
-                        {interaction.outcome && (
-                          <div className="text-sm">
-                            <span className="font-medium">Outcome:</span> {interaction.outcome}
-                          </div>
-                        )}
-                        {interaction.scheduled_follow_up && (
-                          <div className="text-sm text-blue-600">
-                            <Calendar className="h-3 w-3 inline mr-1" />
-                            Follow up: {new Date(interaction.scheduled_follow_up).toLocaleDateString()}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-lg">Interactions</h3>
+                    <Button onClick={() => setShowInteractionDialog(true)} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Interaction
+                    </Button>
+                  </div>
                   
-                  {interactions.length === 0 && (
-                    <p className="text-center text-muted-foreground py-4">No interactions yet</p>
-                  )}
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {interactions.map((interaction) => (
+                      <Card key={interaction.id} className="border border-border/50">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <span className="font-medium capitalize">{interaction.interaction_type}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(interaction.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {interaction.subject && <p className="font-medium">{interaction.subject}</p>}
+                            {interaction.content && <p className="text-muted-foreground">{interaction.content}</p>}
+                            {interaction.outcome && (
+                              <div className="bg-muted/50 p-2 rounded">
+                                <p className="text-sm"><strong>Outcome:</strong> {interaction.outcome}</p>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    
+                    {interactions.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No interactions yet</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Desktop Add Interaction Dialog */}
+      <Dialog open={showInteractionDialog} onOpenChange={setShowInteractionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Interaction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium block mb-2">Type</label>
+              <Select value={newInteraction.type} onValueChange={(value) => setNewInteraction({...newInteraction, type: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="call">Phone Call</SelectItem>
+                  <SelectItem value="meeting">Meeting</SelectItem>
+                  <SelectItem value="note">Note</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium block mb-2">Subject</label>
+              <Input 
+                value={newInteraction.subject} 
+                onChange={(e) => setNewInteraction({...newInteraction, subject: e.target.value})}
+                placeholder="Subject"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium block mb-2">Content</label>
+              <Textarea 
+                value={newInteraction.content} 
+                onChange={(e) => setNewInteraction({...newInteraction, content: e.target.value})}
+                placeholder="Interaction details..."
+                rows={4}
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium block mb-2">Outcome</label>
+              <Input 
+                value={newInteraction.outcome} 
+                onChange={(e) => setNewInteraction({...newInteraction, outcome: e.target.value})}
+                placeholder="What was the result?"
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowInteractionDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={addInteraction}>
+                Add Interaction
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

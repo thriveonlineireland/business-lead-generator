@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Phone, Mail, Globe, Euro, BarChart3, TrendingUp } from "lucide-react";
+import { Phone, Mail, Globe, Euro, BarChart3, TrendingUp, Search, Filter, SortAsc, SortDesc } from "lucide-react";
 
 interface BusinessLead {
   id: string;
@@ -33,13 +35,61 @@ const PipelineView = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [leads, setLeads] = useState<BusinessLead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<BusinessLead[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     if (user) {
       fetchLeads();
     }
   }, [user]);
+
+  // Filter and organize leads by stage
+  useEffect(() => {
+    let filtered = [...leads];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(lead => 
+        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.business_type?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Priority filter  
+    if (priorityFilter !== "all") {
+      filtered = filtered.filter(lead => lead.priority === priorityFilter);
+    }
+
+    // Sort leads within each stage
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortBy as keyof BusinessLead];
+      let bValue: any = b[sortBy as keyof BusinessLead];
+      
+      if (sortBy === "estimated_value") {
+        aValue = aValue || 0;
+        bValue = bValue || 0;
+      }
+      
+      if (sortBy === "created_at") {
+        aValue = new Date(aValue || 0);
+        bValue = new Date(bValue || 0);
+      }
+
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredLeads(filtered);
+  }, [leads, searchTerm, priorityFilter, sortBy, sortOrder]);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase
@@ -83,7 +133,7 @@ const PipelineView = () => {
   };
 
   const getLeadsByStatus = (status: string) => {
-    return leads.filter(lead => lead.status === status);
+    return filteredLeads.filter(lead => lead.status === status);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -107,17 +157,53 @@ const PipelineView = () => {
           <div className="space-y-4">
             <div>
               <h1 className="text-xl font-bold">Sales Pipeline</h1>
-              <p className="text-sm text-muted-foreground">Track your leads</p>
+              <p className="text-sm text-muted-foreground">Track your leads through stages</p>
+            </div>
+
+            {/* Mobile Filters */}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search leads..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="flex-1 h-10">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                  className="h-10 px-3"
+                >
+                  {sortOrder === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="font-bold text-lg">{leads.length}</div>
-                <div className="text-xs text-muted-foreground">Total Leads</div>
+                <div className="font-bold text-lg">{filteredLeads.length}</div>
+                <div className="text-xs text-muted-foreground">Filtered Leads</div>
               </div>
               <div className="text-center p-3 bg-muted/30 rounded-lg">
                 <div className="font-bold text-lg text-green-600">
-                  €{leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
+                  €{filteredLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0).toLocaleString()}
                 </div>
                 <div className="text-xs text-muted-foreground">Total Value</div>
               </div>
