@@ -151,13 +151,9 @@ serve(async (req) => {
     
     console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
-    // Apply usage limits for free users (10% of results, max 25)
+    // No artificial limits - provide full high-quality results to everyone
     let finalResults = leads;
-    if (!isPremiumUser && leads.length > 0) {
-      const limitedCount = Math.min(Math.ceil(leads.length * 0.1), 25);
-      finalResults = leads.slice(0, limitedCount);
-      console.log(`📊 Limited results for free user: ${finalResults.length}/${leads.length}`);
-    }
+    console.log(`📊 Providing full results: ${finalResults.length} high-quality leads`);
 
     // Save leads to database and search history for authenticated users
     if (userId) {
@@ -222,9 +218,7 @@ serve(async (req) => {
         returnedCount: finalResults.length,
         isPremium: isPremiumUser,
         canExpandSearch: leads.length >= 450,
-        message: isPremiumUser 
-          ? `Found ${leads.length} business leads` 
-          : `Found ${leads.length} leads, showing ${finalResults.length} (upgrade for full results)`
+        message: `Found ${leads.length} high-quality business leads`
       }),
       { 
         headers: { 
@@ -291,9 +285,9 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
     const { lat, lon, boundingbox } = geocodeData[0];
     console.log(`✅ Found coordinates: ${lat}, ${lon}`);
     
-    // Create a reasonable search radius around the location
-    const latRange = 0.08; // approximately 8km - expanded range
-    const lonRange = 0.08;
+    // Create an expanded search radius for comprehensive coverage
+    const latRange = 0.15; // approximately 15km - expanded range for better coverage
+    const lonRange = 0.15;
     const minLat = parseFloat(lat) - latRange;
     const maxLat = parseFloat(lat) + latRange;
     const minLon = parseFloat(lon) - lonRange;
@@ -403,15 +397,15 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
       }
     }
     
-    // If we didn't find many results, try a broader search with generic terms
-    if (leads.length < 50) {
-      console.log(`🔄 Only found ${leads.length} results. Trying broader search for more results`);
+    // Always try broader searches for comprehensive results
+    if (leads.length < 200) {
+      console.log(`🔄 Found ${leads.length} results. Expanding with broader search for comprehensive coverage`);
       await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
     }
 
-    // Add free directory searches to supplement OSM data
-    if (leads.length < maxResults * 0.8) {
-      console.log(`🔍 Adding free directory searches to supplement OSM data`);
+    // Always supplement with free directory searches for maximum coverage
+    if (leads.length < maxResults * 0.9) {
+      console.log(`🔍 Supplementing with free directory searches for comprehensive results`);
       const directoryLeads = await searchFreeDirectories(location, businessType, maxResults - leads.length);
       leads.push(...directoryLeads);
     }
