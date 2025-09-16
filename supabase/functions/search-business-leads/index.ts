@@ -151,9 +151,18 @@ serve(async (req) => {
     
     console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
-    // No artificial limits - provide full high-quality results to everyone
+    // Apply lead limiting for free users (tease with 10% of results, max 25)
     let finalResults = leads;
-    console.log(`📊 Providing full results: ${finalResults.length} high-quality leads`);
+    let isLimited = false;
+    
+    if (!isPremiumUser) {
+      const limitedCount = Math.min(Math.ceil(leads.length * 0.1), 25);
+      finalResults = leads.slice(0, limitedCount);
+      isLimited = limitedCount < leads.length;
+      console.log(`📊 Free user: showing ${finalResults.length} of ${leads.length} high-quality leads (10% sample)`);
+    } else {
+      console.log(`📊 Premium user: providing all ${finalResults.length} high-quality leads`);
+    }
 
     // Save leads to database and search history for authenticated users
     if (userId) {
@@ -217,8 +226,11 @@ serve(async (req) => {
         totalFound: leads.length,
         returnedCount: finalResults.length,
         isPremium: isPremiumUser,
+        isLimited: isLimited,
         canExpandSearch: leads.length >= 450,
-        message: `Found ${leads.length} high-quality business leads`
+        message: isLimited 
+          ? `Found ${leads.length} high-quality business leads! Showing ${finalResults.length} premium results. Upgrade to access all ${leads.length} leads.`
+          : `Found ${leads.length} high-quality business leads`
       }),
       { 
         headers: { 
