@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -20,34 +20,53 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
 
-  const filteredLeads = leads.filter(lead =>
-    lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.phone?.includes(searchTerm) ||
-    lead.website?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.instagram?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLeads = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return leads.filter(lead =>
+      lead.name.toLowerCase().includes(term) ||
+      lead.email?.toLowerCase().includes(term) ||
+      lead.phone?.includes(searchTerm) ||
+      lead.website?.toLowerCase().includes(term) ||
+      lead.instagram?.toLowerCase().includes(term)
+    );
+  }, [leads, searchTerm]);
 
-  const sortedLeads = [...filteredLeads].sort((a, b) => {
-    switch (sortBy) {
-      case "name":
-        return a.name.localeCompare(b.name);
-      case "email":
-        return (a.email || "").localeCompare(b.email || "");
-      case "phone":
-        return (a.phone || "").localeCompare(b.phone || "");
-      default:
-        return 0;
-    }
-  });
+  const sortedLeads = useMemo(() => {
+    const copy = [...filteredLeads];
+    copy.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "email":
+          return (a.email || "").localeCompare(b.email || "");
+        case "phone":
+          return (a.phone || "").localeCompare(b.phone || "");
+        default:
+          return 0;
+      }
+    });
+    return copy;
+  }, [filteredLeads, sortBy]);
+
+  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / pageSize));
+  const pageStart = (page - 1) * pageSize;
+  const currentPageLeads = sortedLeads.slice(pageStart, pageStart + pageSize);
+
 
   const handleSelectAll = () => {
-    if (selectedLeads.size === sortedLeads.length) {
-      setSelectedLeads(new Set());
+    const newSelected = new Set(selectedLeads);
+    const allSelectedOnPage = currentPageLeads.every((_, idx) => newSelected.has(pageStart + idx));
+    if (allSelectedOnPage) {
+      // Unselect all on current page
+      currentPageLeads.forEach((_, idx) => newSelected.delete(pageStart + idx));
     } else {
-      setSelectedLeads(new Set(sortedLeads.map((_, index) => index)));
+      // Select all on current page
+      currentPageLeads.forEach((_, idx) => newSelected.add(pageStart + idx));
     }
+    setSelectedLeads(newSelected);
   };
 
   const handleSelectLead = (index: number) => {
@@ -211,23 +230,23 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
       <CardContent>
         <div className="rounded-lg border overflow-hidden">
           <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedLeads.size === sortedLeads.length && sortedLeads.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300"
-                  />
-                </TableHead>
-                <TableHead className="font-semibold">Business Name</TableHead>
-                <TableHead className="font-semibold">Contact</TableHead>
-                <TableHead className="font-semibold">Website</TableHead>
-                <TableHead className="font-semibold">Source</TableHead>
-                <TableHead className="font-semibold w-24">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={currentPageLeads.length > 0 && currentPageLeads.every((_, idx) => selectedLeads.has(pageStart + idx))}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                  </TableHead>
+                  <TableHead className="font-semibold">Business Name</TableHead>
+                  <TableHead className="font-semibold">Contact</TableHead>
+                  <TableHead className="font-semibold">Website</TableHead>
+                  <TableHead className="font-semibold">Source</TableHead>
+                  <TableHead className="font-semibold w-24">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {sortedLeads.map((lead, index) => (
                 <TableRow
