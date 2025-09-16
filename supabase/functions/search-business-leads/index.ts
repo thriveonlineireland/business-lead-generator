@@ -27,6 +27,8 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'retail': ['shop', 'mall', 'department_store', 'supermarket', 'clothes'],
   'fitness': ['fitness_centre', 'gym', 'yoga', 'sports_centre'],
   'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
+  'beauty-salon': ['beauty_salon', 'spa', 'cosmetics'],
+  'hair-salon': ['hairdresser', 'beauty_salon'],
   'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
   'dentist': ['dentist', 'dental', 'orthodontist'],
   'doctor': ['doctors', 'clinic', 'hospital', 'medical'],
@@ -34,6 +36,8 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'professional': ['office', 'lawyer', 'accountant', 'insurance', 'consultant'],
   'accountant': ['office', 'accountant', 'accounting', 'bookkeeper', 'tax_advisor'],
   'lawyer': ['office', 'lawyer', 'legal', 'attorney'],
+  'law-firm': ['lawyer', 'legal', 'office'],
+  'real-estate': ['estate_agent', 'real_estate_agent', 'office'],
   'education': ['school', 'kindergarten', 'university', 'college']
 };
 

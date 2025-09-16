@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SecureSearchForm, SearchFormRef } from "@/components/search/SecureSearchForm";
-import FreemiumResultsTable from "@/components/search/FreemiumResultsTable";
+import ResultsTable from "@/components/search/ResultsTable";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -346,9 +346,8 @@ const Dashboard = () => {
                         {searchResults.length} leads
                       </Badge>
                     </div>
-                    <FreemiumResultsTable 
-                      leads={searchResults} 
-                      onUpgrade={() => setShowUpgradeModal(true)}
+                    <ResultsTable 
+                      leads={searchResults}
                     />
                     <ExpandSearchDialog
                       open={showExpandDialog}
@@ -359,11 +358,11 @@ const Dashboard = () => {
                       businessType={currentSearchParams?.businessType || ''}
                     />
                     <UpgradeModal
-                      isOpen={showUpgradeModal}
-                      onClose={() => setShowUpgradeModal(false)}
-                      onPurchase={handleUpgrade}
-        hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(25, Math.floor(searchResults.length * 0.1))))}
-                    />
+                       isOpen={showUpgradeModal}
+                       onClose={() => setShowUpgradeModal(false)}
+                       onPurchase={handleUpgrade}
+                       hiddenLeadsCount={0}
+                     />
                   </div>
                 ) : (
                   <Card className="border-0 shadow-soft bg-muted/20 border-dashed">
@@ -488,9 +487,8 @@ const Dashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <FreemiumResultsTable 
-                      leads={searchResults} 
-                      onUpgrade={() => setShowUpgradeModal(true)}
+                    <ResultsTable 
+                      leads={searchResults}
                     />
                   </CardContent>
                 </Card>
@@ -586,11 +584,11 @@ const Dashboard = () => {
             businessType={currentSearchParams?.businessType || ''}
           />
           <UpgradeModal
-            isOpen={showUpgradeModal}
-            onClose={() => setShowUpgradeModal(false)}
-            onPurchase={handleUpgrade}
-            hiddenLeadsCount={Math.max(0, searchResults.length - Math.max(5, Math.min(25, Math.floor(searchResults.length * 0.1))))}
-          />
+             isOpen={showUpgradeModal}
+             onClose={() => setShowUpgradeModal(false)}
+             onPurchase={handleUpgrade}
+             hiddenLeadsCount={0}
+           />
         </TabsContent>
 
         <TabsContent value="manage">
