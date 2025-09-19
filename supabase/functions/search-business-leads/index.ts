@@ -80,65 +80,74 @@ serve(async (req) => {
         if (!authError && userData.user) {
           userId = userData.user.id;
           console.log(`👤 Authenticated user: ${userData.user.email}`);
-          
-          // Check user subscription status and usage limits
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('subscription_status, free_searches_used, last_search_reset')
-            .eq('user_id', userId)
-            .single();
 
-          if (profileError) {
-            console.log('⚠️ Profile lookup error:', profileError.message);
-            // Continue as guest if profile lookup fails
-          } else {
-            isPremiumUser = profile?.subscription_status === 'active';
-            
-            // Check usage limits for free users
-            if (!isPremiumUser) {
-              const today = new Date().toISOString().split('T')[0];
-              let currentUsage = profile?.free_searches_used || 0;
-              
-              // Reset counter if it's a new day
-              if (profile?.last_search_reset !== today) {
-                try {
-                  await supabase
-                    .from('profiles')
-                    .update({
-                      free_searches_used: 0,
-                      last_search_reset: today
-                    })
-                    .eq('user_id', userId);
-                  currentUsage = 0;
-                } catch (updateError) {
-                  console.log('⚠️ Profile update error:', updateError);
-                  // Continue with existing usage count
+          // Bypass limit for whitelisted emails
+          const userEmail = (userData.user.email || '').toLowerCase();
+          if (BYPASS_EMAILS.includes(userEmail)) {
+            isPremiumUser = true;
+            console.log(`✅ Bypass enabled for ${userEmail} — treating as premium`);
+          }
+          
+          // Check user subscription status and usage limits (skip if bypassed)
+          if (!isPremiumUser) {
+            try {
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('subscription_status, free_searches_used, last_search_reset')
+                .eq('user_id', userId)
+                .single();
+
+              if (profileError) {
+                console.log('⚠️ Profile lookup error:', profileError.message);
+                // Continue as guest if profile lookup fails
+              } else {
+                isPremiumUser = profile?.subscription_status === 'active';
+                
+                // Check usage limits for free users
+                if (!isPremiumUser) {
+                  const today = new Date().toISOString().split('T')[0];
+                  let currentUsage = profile?.free_searches_used || 0;
+                  
+                  // Reset counter if it's a new day
+                  if (profile?.last_search_reset !== today) {
+                    try {
+                      await supabase
+                        .from('profiles')
+                        .update({
+                          free_searches_used: 0,
+                          last_search_reset: today
+                        })
+                        .eq('user_id', userId);
+                      currentUsage = 0;
+                    } catch (updateError) {
+                      console.log('⚠️ Profile update error:', updateError);
+                      // Continue with existing usage count
+                    }
+                  }
+                  
+                  // Check if user has reached their limit
+                  if (currentUsage >= 3) {
+                    console.log(`❌ User ${userId} has reached their free search limit`);
+                    return new Response(
+                      JSON.stringify({
+                        success: false,
+                        error: 'You have reached your monthly limit of 3 free searches. Upgrade to Premium for unlimited searches.',
+                        data: [],
+                        totalFound: 0,
+                        requiresUpgrade: true
+                      }),
+                      { 
+                        status: 200,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                      }
+                    );
+                  }
                 }
               }
-              
-              // Check if user has reached their limit
-              if (currentUsage >= 3) {
-                console.log(`❌ User ${userId} has reached their free search limit`);
-                return new Response(
-                  JSON.stringify({
-                    success: false,
-                    error: 'You have reached your monthly limit of 3 free searches. Upgrade to Premium for unlimited searches.',
-                    data: [],
-                    totalFound: 0,
-                    requiresUpgrade: true
-                  }),
-                  { 
-                    status: 200,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                  }
-                );
-              }
+            } catch (error) {
+              console.log('⚠️ Profile check failed, proceeding as guest:', error);
             }
           }
-        } catch (error) {
-          console.log('⚠️ Profile check failed, proceeding as guest:', error);
-        }
         }
       } catch (error) {
         console.log('⚠️ Auth token invalid, proceeding as guest');
