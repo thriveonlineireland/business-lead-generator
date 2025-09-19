@@ -22,6 +22,8 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+  const [showQualityFilter, setShowQualityFilter] = useState(false);
+  const [qualityFilter, setQualityFilter] = useState("all");
 
   const getDataCompleteness = (lead: BusinessLead) => {
     const hasEmail = !!lead.email && lead.email.includes('@');
@@ -36,13 +38,32 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
 
   const filteredLeads = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return leads.filter(lead =>
+    let filtered = leads.filter(lead =>
       lead.name.toLowerCase().includes(term) ||
       lead.email?.toLowerCase().includes(term) ||
       lead.phone?.includes(searchTerm) ||
       lead.website?.toLowerCase().includes(term) ||
       lead.instagram?.toLowerCase().includes(term)
     );
+    
+    // Apply quality filter
+    if (qualityFilter !== "all") {
+      filtered = filtered.filter(lead => {
+        const completeness = getDataCompleteness(lead);
+        switch (qualityFilter) {
+          case "complete":
+            return completeness.score === 3;
+          case "partial":
+            return completeness.score > 0 && completeness.score < 3;
+          case "minimal":
+            return completeness.score === 0;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    return filtered;
   }, [leads, searchTerm]);
 
   const sortedLeads = useMemo(() => {
@@ -224,6 +245,18 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
               />
             </div>
           </div>
+            <Select value={qualityFilter} onValueChange={setQualityFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by quality..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Quality</SelectItem>
+                <SelectItem value="complete">Complete Info</SelectItem>
+                <SelectItem value="partial">Partial Info</SelectItem>
+                <SelectItem value="minimal">Name Only</SelectItem>
+              </SelectContent>
+            </Select>
+
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[180px]">

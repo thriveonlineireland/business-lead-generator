@@ -44,9 +44,40 @@ const Dashboard = () => {
 
   const handleSearchResults = (results: BusinessLead[], location?: string, businessType?: string, canExpandSearch?: boolean) => {
     console.log('📈 Dashboard received results:', results?.length, 'leads');
+    
+    if (!results || !Array.isArray(results)) {
+      console.error('❌ Invalid results received:', results);
+      toast({
+        title: "Search Error",
+        description: "Invalid search results received. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (results?.length > 0) {
       console.log('📋 Sample result:', results[0]);
+      
+      // Show success message with quality breakdown
+      const qualityStats = {
+        complete: results.filter(lead => lead.email && lead.phone && lead.website).length,
+        partial: results.filter(lead => (lead.email || lead.phone || lead.website) && !(lead.email && lead.phone && lead.website)).length,
+        minimal: results.filter(lead => !lead.email && !lead.phone && !lead.website).length
+      };
+      
+      toast({
+        title: "Search Completed Successfully! 🎉",
+        description: `Found ${results.length} leads: ${qualityStats.complete} complete, ${qualityStats.partial} partial, ${qualityStats.minimal} minimal`,
+        duration: 5000,
+      });
+    } else {
+      toast({
+        title: "No Results Found",
+        description: "Try adjusting your search location or business type for better results.",
+        variant: "destructive",
+      });
     }
+    
     setSearchResults(results);
     setCurrentSearchParams(location && businessType ? { location, businessType } : null);
     

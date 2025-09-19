@@ -116,7 +116,15 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       if (data?.success) {
         const foundLeads = data.data || [];
         console.log('✅ Search completed successfully:', foundLeads.length, 'leads found');
-        console.log('📊 Sample lead:', foundLeads[0]);
+        if (foundLeads.length > 0) {
+          console.log('📊 Sample lead:', foundLeads[0]);
+          console.log('📊 Lead quality breakdown:', {
+            withEmail: foundLeads.filter((l: any) => l.email).length,
+            withPhone: foundLeads.filter((l: any) => l.phone).length,
+            withWebsite: foundLeads.filter((l: any) => l.website).length,
+            complete: foundLeads.filter((l: any) => l.email && l.phone && l.website).length
+          });
+        }
         
         // Call onResults to update the parent component
         onResults(foundLeads, finalLocation, finalBusinessType, data.canExpandSearch);
@@ -133,10 +141,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
           });
         }
 
-        toast({
-          title: "Search Complete",
-          description: `Found ${foundLeads.length} business leads`,
-        });
+        // Don't show toast here - let Dashboard handle it with more details
       } else {
         console.error('❌ Search failed:', data?.error || 'No data returned');
         if (data?.requiresUpgrade) {

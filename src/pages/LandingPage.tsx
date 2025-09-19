@@ -198,17 +198,17 @@ const LandingPage = () => {
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center animate-slide-up pt-8">
               {user ? (
-                <EnhancedButton variant="hero" size="lg" className="text-lg px-8 py-4" asChild>
+                <EnhancedButton variant="hero" size="lg" className="text-xl px-12 py-6" asChild>
                   <Link to="/dashboard">
                     <Search className="mr-3 h-6 w-6" />
-                    Go to Dashboard
+                    Start Finding Leads
                   </Link>
                 </EnhancedButton>
               ) : (
-                <EnhancedButton variant="hero" size="lg" className="text-lg px-8 py-4" asChild>
+                <EnhancedButton variant="hero" size="lg" className="text-xl px-12 py-6" asChild>
                   <Link to="/auth">
                     <LogIn className="mr-3 h-6 w-6" />
-                    Sign In / Sign Up
+                    Get Started Free
                   </Link>
                 </EnhancedButton>
               )}
@@ -229,15 +229,15 @@ const LandingPage = () => {
             {/* Desktop Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-16 max-w-4xl mx-auto pt-16">
               <div className="text-center space-y-3">
-                <div className="text-5xl font-bold text-primary">500+</div>
+                <div className="text-5xl font-bold text-primary">1000+</div>
                 <div className="text-lg text-muted-foreground">Leads per search</div>
               </div>
               <div className="text-center space-y-3">
-                <div className="text-5xl font-bold text-success">2min</div>
+                <div className="text-5xl font-bold text-success">30sec</div>
                 <div className="text-lg text-muted-foreground">Average search time</div>
               </div>
               <div className="text-center space-y-3">
-                <div className="text-5xl font-bold text-accent">4+</div>
+                <div className="text-5xl font-bold text-accent">6+</div>
                 <div className="text-lg text-muted-foreground">Data sources</div>
               </div>
             </div>

@@ -9,14 +9,14 @@ interface QuickActionsProps {
 
 const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
   const quickSearches = [
-    { location: "Dublin, Ireland", businessType: "hair-salon", label: "Dublin Hair Salons" },
-    { location: "Dublin 2, Ireland", businessType: "restaurant", label: "Dublin 2 Restaurants" },
-    { location: "Cork, Ireland", businessType: "dentist", label: "Cork Dentists" },
-    { location: "London, UK", businessType: "lawyer", label: "London Lawyers" },
-    { location: "Dublin 4, Ireland", businessType: "cafe", label: "Dublin 4 Cafes" },
-    { location: "Manchester, UK", businessType: "accountant", label: "Manchester Accountants" },
-    { location: "New York, NY, USA", businessType: "real-estate", label: "NYC Real Estate" },
-    { location: "Los Angeles, CA, USA", businessType: "beauty-salon", label: "LA Beauty" }
+    { location: "Dublin, Ireland", businessType: "restaurant", label: "Dublin Restaurants", target: "1000+" },
+    { location: "Dublin, Ireland", businessType: "hair-salon", label: "Dublin Hair Salons", target: "500+" },
+    { location: "Cork, Ireland", businessType: "cafe", label: "Cork Cafes", target: "300+" },
+    { location: "London, UK", businessType: "dentist", label: "London Dentists", target: "800+" },
+    { location: "Manchester, UK", businessType: "lawyer", label: "Manchester Lawyers", target: "600+" },
+    { location: "New York, NY, USA", businessType: "restaurant", label: "NYC Restaurants", target: "2000+" },
+    { location: "Los Angeles, CA, USA", businessType: "beauty-salon", label: "LA Beauty Salons", target: "1500+" },
+    { location: "Chicago, IL, USA", businessType: "accountant", label: "Chicago Accountants", target: "700+" }
   ];
 
   return (
@@ -43,7 +43,7 @@ const QuickActions = ({ onQuickSearch }: QuickActionsProps) => {
             >
               <span className="text-xs font-medium text-center leading-tight">{search.label}</span>
               <Badge variant="secondary" className="text-xs">
-                Target: 500+ leads
+                Target: {search.target} leads
               </Badge>
             </EnhancedButton>
           ))}
