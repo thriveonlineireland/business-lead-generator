@@ -146,8 +146,8 @@ serve(async (req) => {
     console.log(`🎯 Search mode: ${userId ? 'authenticated' : 'guest'}`);
     console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: 500 results`);
 
-    // Use free OpenStreetMap API
-    const leads = await searchOpenStreetMap(location, businessType, 500);
+    // Use high-quality Firecrawl API for premium results
+    const leads = await searchWithFirecrawl(location, businessType, 500);
     
     console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
@@ -677,30 +677,181 @@ function extractEnhancedContactInfo(tags: any): { phone?: string; website?: stri
   return result;
 }
 
-// Free directory search function
-async function searchFreeDirectories(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
-  const directoryLeads: BusinessLead[] = [];
+// High-quality business search using Firecrawl API
+async function searchWithFirecrawl(location: string, businessType: string, maxResults: number): Promise<BusinessLead[]> {
+  const leads: BusinessLead[] = [];
   
   try {
-    // Use public APIs and free data sources
-    console.log(`🌐 Searching free directories for ${businessType} in ${location}`);
+    console.log(`🔥 Using Firecrawl API for high-quality ${businessType} search in ${location}`);
     
-    // 1. Search using public business directory APIs (where available)
-    const publicLeads = await searchPublicBusinessAPIs(location, businessType, Math.min(maxResults, 50));
-    directoryLeads.push(...publicLeads);
+    // Get enhanced search terms for better results
+    const enhancedTerms = getEnhancedSearchTerms(businessType);
+    const normalizedLocation = normalizeLocation(location);
+    const normalizedBusinessType = normalizeBusinessType(businessType);
     
-    if (directoryLeads.length < maxResults) {
-      // 2. Use government open data sources
-      const govLeads = await searchGovernmentOpenData(location, businessType, maxResults - directoryLeads.length);
-      directoryLeads.push(...govLeads);
+    // Search multiple high-quality directories for comprehensive coverage
+    const searchUrls = getSearchUrls(normalizedLocation, normalizedBusinessType, 'all');
+    
+    console.log(`🎯 Searching ${searchUrls.length} premium directories for comprehensive results`);
+    
+    for (const url of searchUrls) {
+      if (leads.length >= maxResults) break;
+      
+      try {
+        const urlLeads = await crawlUrlWithRetry(url, 'directory', 3);
+        
+        // Filter and enhance results
+        const qualityLeads = urlLeads
+          .filter(lead => lead.name && lead.name !== 'Business')
+          .map(lead => ({
+            ...lead,
+            source: 'Firecrawl (Premium)'
+          }));
+        
+        leads.push(...qualityLeads);
+        console.log(`✅ Found ${qualityLeads.length} quality leads from ${url.split('/')[2]}`);
+        
+        // Rate limiting between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`❌ Error crawling ${url}:`, error.message);
+      }
     }
     
+    // Remove duplicates and ensure quality
+    const uniqueLeads = removeDuplicateLeads(leads);
+    console.log(`🏆 Firecrawl search completed: ${uniqueLeads.length} high-quality leads found`);
+    
+    return uniqueLeads.slice(0, maxResults);
+    
   } catch (error) {
-    console.error('❌ Error in free directory search:', error);
+    console.error('❌ Firecrawl search failed, falling back to free sources:', error);
+    // Fallback to free OpenStreetMap search
+    return await searchOpenStreetMap(location, businessType, maxResults);
+  }
+}
+
+async function crawlUrlWithRetry(url: string, source: string, maxRetries: number = 2): Promise<BusinessLead[]> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('FIRECRAWL_API_KEY')}`
+        },
+        body: JSON.stringify({
+          url: url,
+          formats: ['extract'],
+          extract: {
+            schema: {
+              type: 'object',
+              properties: {
+                businesses: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      address: { type: 'string' },
+                      phone: { type: 'string' },
+                      website: { type: 'string' },
+                      email: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Firecrawl API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.extract?.businesses) {
+        return data.extract.businesses.map((business: any) => ({
+          name: business.name || 'Business',
+          address: business.address,
+          phone: business.phone,
+          website: business.website,
+          email: business.email,
+          source: source
+        }));
+      }
+      
+      return [];
+      
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed for ${url}: ${error.message}`);
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+    }
   }
   
-  console.log(`✅ Free directory search found ${directoryLeads.length} additional leads`);
-  return directoryLeads.slice(0, maxResults);
+  return [];
+}
+
+function getSearchUrls(location: string, businessType: string, directory: string): string[] {
+  const urls: string[] = [];
+  
+  // YellowPages search URLs
+  urls.push(`https://www.yellowpages.com/search?search_terms=${encodeURIComponent(businessType)}&geo_location_terms=${encodeURIComponent(location)}`);
+  
+  // Yelp search URLs  
+  urls.push(`https://www.yelp.com/search?find_desc=${encodeURIComponent(businessType)}&find_loc=${encodeURIComponent(location)}`);
+  
+  // Better Business Bureau
+  urls.push(`https://www.bbb.org/search?find_country=US&find_text=${encodeURIComponent(businessType)}&find_type=name&find_loc=${encodeURIComponent(location)}`);
+  
+  // Google Business search
+  urls.push(`https://www.google.com/search?q=${encodeURIComponent(businessType + ' ' + location + ' business directory')}`);
+  
+  return urls;
+}
+
+function getEnhancedSearchTerms(businessType: string): string {
+  const enhancements: Record<string, string> = {
+    'restaurant': 'restaurant dining food service',
+    'dentist': 'dentist dental orthodontist oral surgery',
+    'lawyer': 'lawyer attorney legal services law firm',
+    'accountant': 'accountant accounting bookkeeper tax services',
+    'hair-salon': 'hair salon stylist beauty barber',
+    'beauty-salon': 'beauty salon spa cosmetics wellness'
+  };
+  
+  return enhancements[businessType.toLowerCase()] || businessType;
+}
+
+function normalizeLocation(location: string): string {
+  return location.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeBusinessType(businessType: string): string {
+  const normalizations: Record<string, string> = {
+    'hair-salon': 'hair salon',
+    'beauty-salon': 'beauty salon',
+    'law-firm': 'law firm',
+    'real-estate': 'real estate'
+  };
+  
+  return normalizations[businessType.toLowerCase()] || businessType;
+}
+
+function removeDuplicateLeads(leads: BusinessLead[]): BusinessLead[] {
+  const seen = new Set<string>();
+  return leads.filter(lead => {
+    const key = `${lead.name?.toLowerCase()}-${lead.phone || ''}-${lead.email || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Search public business APIs (free tier usage)
