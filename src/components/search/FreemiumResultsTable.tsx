@@ -536,10 +536,10 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
               </div>
             </div>
             
-            <h3 className="text-2xl font-bold mb-2">Unlock {hiddenLeadsCount} More High-Quality Leads</h3>
+            <h3 className="text-2xl font-bold mb-2">🔓 Unlock {hiddenLeadsCount} More Premium Leads</h3>
             <p className="text-lg text-muted-foreground mb-6">
-              We found <span className="font-semibold text-primary">{leads.length} total leads</span> for your search. 
-              You're seeing 10% as a preview. Upgrade to access all leads with complete contact information.
+              We found <span className="font-semibold text-primary">{leads.length} total leads</span> for your search! 
+              You're seeing 15% as a preview. Get instant access to all leads with complete contact information.
             </p>
             
             <div className="bg-card/50 rounded-lg p-6 mb-6 backdrop-blur-sm">
@@ -567,11 +567,11 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
                 className="flex items-center space-x-2"
               >
                 <Crown className="h-5 w-5" />
-                <span>Get All {leads.length} Leads - €{Math.ceil(leads.length / 100) * 10}</span>
+                <span>Unlock All {leads.length} Leads - €{Math.ceil(leads.length / 100) * 10}</span>
               </EnhancedButton>
               
               <div className="text-sm text-muted-foreground">
-                Pay per lead • No subscriptions
+                One-time payment • Instant access • No subscriptions
               </div>
             </div>
           </CardContent>

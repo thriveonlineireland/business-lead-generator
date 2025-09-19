@@ -373,9 +373,14 @@ const Dashboard = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-base">Lead Results</h3>
-                      <Badge variant="secondary" className="text-sm">
-                        {searchResults.length} leads
-                      </Badge>
+                      <div className="flex gap-2">
+                        <Badge variant="secondary" className="text-sm">
+                          {searchResults.length} leads
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {searchResults.filter(lead => lead.email && lead.phone).length} complete
+                        </Badge>
+                      </div>
                     </div>
                     <ResultsTable 
                       leads={searchResults}
