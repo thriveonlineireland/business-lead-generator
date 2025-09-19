@@ -30,7 +30,7 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'fitness': ['fitness_centre', 'gym', 'yoga', 'sports_centre'],
   'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
   'beauty-salon': ['beauty_salon', 'spa', 'cosmetics'],
-  'hair-salon': ['hairdresser', 'beauty_salon'],
+  'hair-salon': ['hairdresser', 'beauty_salon', 'barber', 'hair', 'beauty'],
   'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
   'dentist': ['dentist', 'dental', 'orthodontist'],
   'doctor': ['doctors', 'clinic', 'hospital', 'medical'],
@@ -42,6 +42,9 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'real-estate': ['estate_agent', 'real_estate_agent', 'office'],
   'education': ['school', 'kindergarten', 'university', 'college']
 };
+
+// Bypass emails for unlimited free searches
+const BYPASS_EMAILS = ['kevin.kirwan00@gmail.com'];
 
 serve(async (req) => {
   console.log(`🚀 Edge function called with method: ${req.method}`);
@@ -329,26 +332,27 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
       
       console.log(`🔍 Searching for ${osmType} businesses`);
       
-      // Enhanced queries with comprehensive contact info extraction
-      const overpassQueries = [
-        // Primary query with extended contact fields
-        `[out:json][timeout:30];
-        (
-          nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["healthcare"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["healthcare:speciality"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-        );
-        out center meta;`,
-        // Secondary query with regex matching for medical/dental practices
-        `[out:json][timeout:30];
-        (
-          nwr["amenity"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["healthcare"~"${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
-          nwr["name"~"${businessType}"i](${minLat},${minLon},${maxLat},${maxLon});
-        );
-        out center meta;`
-      ];
+        // Enhanced queries with comprehensive hair salon search
+        const overpassQueries = [
+          // Primary hair salon query with multiple amenity types
+          `[out:json][timeout:30];
+          (
+            nwr["amenity"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["shop"="${osmType}"](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["name"~"hair|salon|barber|beauty|styling"i](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["amenity"~"hairdresser|beauty"](${minLat},${minLon},${maxLat},${maxLon});
+          );
+          out center meta;`,
+          // Secondary comprehensive search for hair/beauty businesses
+          `[out:json][timeout:30];
+          (
+            nwr[~"name|brand"~".*hair.*|.*salon.*|.*barber.*|.*beauty.*|.*styling.*"i](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["amenity"="hairdresser"](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["shop"="hairdresser"](${minLat},${minLon},${maxLat},${maxLon});
+            nwr["shop"="beauty"](${minLat},${minLon},${maxLat},${maxLon});
+          );
+          out center meta;`
+        ];
       
       for (const overpassQuery of overpassQueries) {
         if (leads.length >= maxResults) break;
@@ -433,10 +437,10 @@ async function searchOpenStreetMap(location: string, businessType: string, maxRe
       await searchBroaderCategories(minLat, minLon, maxLat, maxLon, businessType, leads, maxResults);
     }
 
-    // Always supplement with free directory searches for maximum coverage
+    // Always supplement with public API searches for maximum coverage
     if (leads.length < maxResults * 0.9) {
-      console.log(`🔍 Supplementing with free directory searches for comprehensive results`);
-      const directoryLeads = await searchFreeDirectories(location, businessType, maxResults - leads.length);
+      console.log(`🔍 Supplementing with public API searches for comprehensive results`);
+      const directoryLeads = await searchPublicBusinessAPIs(location, businessType, maxResults - leads.length);
       leads.push(...directoryLeads);
     }
     
@@ -597,10 +601,34 @@ function isRelevantToBusinessType(businessType: string, name: string, tags: any)
              relevantTags.includes('cafe') ||
              relevantTags.includes('coffee_shop');
              
+    case 'hair-salon':
+    case 'hair salon':
+    case 'hairdresser':
+      return (businessName.includes('hair') || 
+              businessName.includes('salon') || 
+              businessName.includes('barber') ||
+              businessName.includes('styling') ||
+              businessName.includes('beauty')) &&
+             !businessName.includes('pharmacy') &&
+             !businessName.includes('restaurant') &&
+             !businessName.includes('food') &&
+             !businessName.includes('cafe') &&
+             !businessName.includes('hotel') ||
+             relevantTags.includes('hairdresser') ||
+             relevantTags.includes('beauty_salon');
+             
     default:
-      // For other business types, use generic matching
-      return relevantTags.some(tag => tag?.includes(searchTerm)) ||
-             businessName.includes(searchTerm);
+      // For other business types, use stricter matching to avoid irrelevant results
+      const isRelevantTag = relevantTags.some(tag => tag?.includes(searchTerm));
+      const isRelevantName = businessName.includes(searchTerm);
+      
+      // Exclude obviously irrelevant businesses
+      const excludeTerms = ['pharmacy', 'restaurant', 'food', 'hotel', 'shop', 'store', 'supermarket'];
+      const isExcluded = excludeTerms.some(term => 
+        businessName.includes(term) || relevantTags.some(tag => tag?.includes(term))
+      );
+      
+      return (isRelevantTag || isRelevantName) && !isExcluded;
   }
 }
 
