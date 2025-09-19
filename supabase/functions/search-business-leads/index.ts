@@ -30,7 +30,7 @@ const OSM_BUSINESS_TYPES: Record<string, string[]> = {
   'fitness': ['fitness_centre', 'gym', 'yoga', 'sports_centre'],
   'beauty': ['beauty_salon', 'hairdresser', 'nail_salon', 'cosmetics'],
   'beauty-salon': ['beauty_salon', 'spa', 'cosmetics'],
-  'hair-salon': ['hairdresser', 'beauty_salon', 'barber', 'hair', 'beauty'],
+  'hair-salon': ['hairdresser', 'beauty_salon', 'barber'],
   'medical': ['doctors', 'dentist', 'pharmacy', 'hospital', 'clinic'],
   'dentist': ['dentist', 'dental', 'orthodontist'],
   'doctor': ['doctors', 'clinic', 'hospital', 'medical'],
@@ -635,11 +635,24 @@ function isRelevantToBusinessType(businessType: string, name: string, tags: any)
 function isRelevantBusiness(businessType: string, categoryValue: string, name: string): boolean {
   if (!categoryValue && !name) return false;
   
-  const searchTerms = businessType.toLowerCase().split(/[-\s]/);
-  const checkText = `${categoryValue || ''} ${name}`.toLowerCase();
-  
-  // Check if any of the business type terms match
-  return searchTerms.some(term => checkText.includes(term));
+  const s = businessType.toLowerCase();
+  const n = (name || '').toLowerCase();
+  const c = (categoryValue || '').toLowerCase();
+
+  // Exclude obviously irrelevant categories/names
+  const exclude = ['pharmacy', 'fast_food', 'restaurant', 'cafe', 'supermarket', 'grocery', 'butcher', 'off_licence', 'liquor', 'hotel', 'pizza', 'kebab', 'chip', 'chipper'];
+  if (exclude.some(term => n.includes(term) || c.includes(term))) return false;
+
+  // Hair salon specific logic
+  if (s.includes('hair') || s.includes('salon') || s.includes('hairdresser')) {
+    if (c.includes('hairdresser') || c.includes('beauty_salon')) return true;
+    const hairRegex = /\b(hair|salon|barber|beauty|styling)\b/i;
+    return hairRegex.test(name || '');
+  }
+
+  // Generic boundary-matching for other business types
+  const terms = s.split(/[-\s]/).filter(Boolean);
+  return terms.some(term => new RegExp(`\\b${term}\\b`, 'i').test(n) || new RegExp(`\\b${term}\\b`, 'i').test(c));
 }
 
 function formatAddress(tags: any): string {
