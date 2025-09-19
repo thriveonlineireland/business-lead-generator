@@ -42,9 +42,9 @@ const FreemiumResultsTable = ({ leads, onUpgrade }: FreemiumResultsTableProps) =
     };
   };
 
-  // Show 10% of total results as freemium preview (minimum 5, maximum 25)
+  // Show 10% of total results as freemium preview (minimum 5, maximum 15)
   // But prioritize leads with complete contact information
-  const freeLeadLimit = Math.max(5, Math.min(25, Math.floor(leads.length * 0.1)));
+  const freeLeadLimit = Math.max(5, Math.min(15, Math.floor(leads.length * 0.1)));
   
   // Sort all leads by data completeness (complete leads first)
   const leadsByCompleteness = [...leads].sort((a, b) => {

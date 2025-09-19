@@ -17,6 +17,8 @@ interface BusinessLead {
   latitude?: number;
   longitude?: number;
   source?: string;
+  qualityScore?: number;
+  qualityLabel?: 'High' | 'Medium' | 'Low';
 }
 
 // Business type mappings for OpenStreetMap
@@ -148,18 +150,25 @@ serve(async (req) => {
 
     // Use high-quality Firecrawl API for premium results
     const leads = await searchWithFirecrawl(location, businessType, 500);
-    
-    console.log(`🏆 Search completed. Total leads found: ${leads.length}`);
 
-    // Apply lead limiting for free users (tease with 10% of results, max 25)
-    let finalResults = leads;
+    // Score and sort leads by quality before any limiting
+    const scoredLeads = leads.map((l) => {
+      const score = computeQualityScore(l);
+      return { ...l, qualityScore: score, qualityLabel: qualityLabelFromScore(score) } as BusinessLead;
+    });
+    const sortedLeads = scoredLeads.sort((a, b) => (b.qualityScore || 0) - (a.qualityScore || 0));
+    
+    console.log(`🏆 Search completed. Total leads found: ${sortedLeads.length}`);
+
+    // Apply lead limiting for free users (tease with 10% of results, max 15)
+    let finalResults: BusinessLead[] = sortedLeads;
     let isLimited = false;
     
     if (!isPremiumUser) {
-      const limitedCount = Math.min(Math.ceil(leads.length * 0.1), 25);
-      finalResults = leads.slice(0, limitedCount);
-      isLimited = limitedCount < leads.length;
-      console.log(`📊 Free user: showing ${finalResults.length} of ${leads.length} high-quality leads (10% sample)`);
+      const limitedCount = Math.min(Math.ceil(sortedLeads.length * 0.1), 15);
+      finalResults = sortedLeads.slice(0, limitedCount);
+      isLimited = limitedCount < sortedLeads.length;
+      console.log(`📊 Free user: showing ${finalResults.length} of ${sortedLeads.length} high-quality leads (10% sample, max 15)`);
     } else {
       console.log(`📊 Premium user: providing all ${finalResults.length} high-quality leads`);
     }
@@ -229,8 +238,8 @@ serve(async (req) => {
         isLimited: isLimited,
         canExpandSearch: leads.length >= 450,
         message: isLimited 
-          ? `Found ${leads.length} high-quality business leads! Showing ${finalResults.length} premium results. Upgrade to access all ${leads.length} leads.`
-          : `Found ${leads.length} high-quality business leads`
+          ? `Found ${sortedLeads.length} high-quality business leads! Showing ${finalResults.length} premium results. Upgrade to access all ${sortedLeads.length} leads.`
+          : `Found ${sortedLeads.length} high-quality business leads`
       }),
       { 
         headers: { 
@@ -852,6 +861,35 @@ function removeDuplicateLeads(leads: BusinessLead[]): BusinessLead[] {
     seen.add(key);
     return true;
   });
+}
+
+// Quality scoring utilities
+function computeQualityScore(lead: BusinessLead): number {
+  let score = 0;
+  if (lead.website) score += 30;
+  if (lead.email) score += 20;
+  if (lead.phone) score += 15;
+  if (typeof lead.rating === 'number') {
+    score += Math.min(20, Math.round((lead.rating / 5) * 20));
+  }
+  if (lead.website) {
+    try {
+      const url = new URL(lead.website);
+      const host = url.hostname || '';
+      if (/\.(com|co\.uk|net|org|ie|de|fr|co|au)$/i.test(host)) score += 5;
+      const namePart = host.replace(/^www\./, '').split('.')[0];
+      if (namePart.length > 0 && namePart.length <= 15) score += 5;
+    } catch (_e) {}
+  }
+  const completeness = [lead.email, lead.phone, lead.website].filter(Boolean).length;
+  if (completeness >= 2) score += 5;
+  return Math.max(0, Math.min(100, score));
+}
+
+function qualityLabelFromScore(score: number): 'High' | 'Medium' | 'Low' {
+  if (score >= 70) return 'High';
+  if (score >= 40) return 'Medium';
+  return 'Low';
 }
 
 // Search public business APIs (free tier usage)

@@ -23,6 +23,17 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
 
+  const getDataCompleteness = (lead: BusinessLead) => {
+    const hasEmail = !!lead.email && lead.email.includes('@');
+    const hasPhone = !!lead.phone && lead.phone.replace(/\D/g, '').length >= 10;
+    const hasWebsite = !!lead.website && lead.website.includes('.');
+    const fields = [hasEmail, hasPhone, hasWebsite].filter(Boolean);
+    return {
+      score: fields.length,
+      percentage: Math.round((fields.length / 3) * 100)
+    };
+  };
+
   const filteredLeads = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return leads.filter(lead =>
@@ -243,6 +254,7 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
                   <TableHead className="font-semibold">Business Name</TableHead>
                   <TableHead className="font-semibold">Contact</TableHead>
                   <TableHead className="font-semibold">Website</TableHead>
+                  <TableHead className="font-semibold">Quality</TableHead>
                   <TableHead className="font-semibold">Source</TableHead>
                   <TableHead className="font-semibold w-24">Actions</TableHead>
                 </TableRow>
@@ -333,6 +345,17 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
                         </button>
                       </div>
                     )}
+                  </TableCell>
+                  
+                  <TableCell>
+                    {(() => {
+                      const c = getDataCompleteness(lead);
+                      return (
+                        <Badge variant="secondary" className="text-xs">
+                          {c.score === 3 ? 'Complete' : c.score > 0 ? `${c.percentage}%` : 'Name Only'}
+                        </Badge>
+                      );
+                    })()}
                   </TableCell>
                   
                   <TableCell>
