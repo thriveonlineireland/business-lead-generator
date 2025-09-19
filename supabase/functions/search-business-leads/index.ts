@@ -157,8 +157,8 @@ serve(async (req) => {
     console.log(`🎯 Search mode: ${userId ? 'authenticated' : 'guest'}`);
     console.log(`🔍 Starting business search for: ${businessType} in ${location}, target: 500 results`);
 
-    // Use high-quality Firecrawl API for premium results
-    const leads = await searchWithFirecrawl(location, businessType, 500);
+    // Use free OpenStreetMap scraper for high-quality results
+    const leads = await searchOpenStreetMap(location, businessType, 500);
 
     // Score and sort leads by quality before any limiting
     const scoredLeads = leads.map((l) => {
