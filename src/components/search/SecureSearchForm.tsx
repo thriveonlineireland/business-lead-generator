@@ -101,7 +101,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
         success: data?.success, 
         dataLength: data?.data?.length, 
         error: error?.message || error,
-        fullData: data
+        sampleLead: data?.data?.[0]
       });
 
       if (error) {
@@ -116,7 +116,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
 
       if (data?.success) {
         const foundLeads = data.data || [];
-        console.log('✅ Search completed successfully:', foundLeads.length, 'leads found', foundLeads);
+        console.log('✅ Search completed successfully:', foundLeads.length, 'leads found');
         if (foundLeads.length > 0) {
           console.log('📊 Sample lead:', foundLeads[0]);
           console.log('📊 Lead quality breakdown:', {
@@ -125,6 +125,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
             withWebsite: foundLeads.filter((l: any) => l.website).length,
             complete: foundLeads.filter((l: any) => l.email && l.phone && l.website).length
           });
+        } else {
+          console.warn('⚠️ No leads returned from search function');
         }
         
         // Call onResults to update the parent component

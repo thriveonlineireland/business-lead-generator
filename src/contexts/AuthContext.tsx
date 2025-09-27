@@ -49,8 +49,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       console.log('Initial session check:', session?.user?.email);
+      if (error) {
+        console.error('Session check error:', error);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);

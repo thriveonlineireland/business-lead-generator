@@ -38,6 +38,7 @@ const Dashboard = () => {
   // Redirect unauthenticated users to auth page
   useEffect(() => {
     if (!isLoading && !user) {
+      console.log('🔄 Redirecting unauthenticated user to auth page');
       navigate('/auth');
     }
   }, [user, isLoading, navigate]);
@@ -289,7 +290,7 @@ const Dashboard = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
       </div>
@@ -298,6 +299,7 @@ const Dashboard = () => {
 
   // Don't render anything if user is not authenticated (will redirect)
   if (!user) {
+    console.log('❌ No user found, should redirect to auth');
     return null;
   }
 
