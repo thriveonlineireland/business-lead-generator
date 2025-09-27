@@ -100,7 +100,8 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
       console.log('📨 Function response:', { 
         success: data?.success, 
         dataLength: data?.data?.length, 
-        error: error?.message || error 
+        error: error?.message || error,
+        fullData: data
       });
 
       if (error) {
@@ -115,7 +116,7 @@ export const SecureSearchForm = forwardRef<SearchFormRef, SecureSearchFormProps>
 
       if (data?.success) {
         const foundLeads = data.data || [];
-        console.log('✅ Search completed successfully:', foundLeads.length, 'leads found');
+        console.log('✅ Search completed successfully:', foundLeads.length, 'leads found', foundLeads);
         if (foundLeads.length > 0) {
           console.log('📊 Sample lead:', foundLeads[0]);
           console.log('📊 Lead quality breakdown:', {

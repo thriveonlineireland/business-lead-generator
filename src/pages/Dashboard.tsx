@@ -43,7 +43,7 @@ const Dashboard = () => {
   }, [user, isLoading, navigate]);
 
   const handleSearchResults = (results: BusinessLead[], location?: string, businessType?: string, canExpandSearch?: boolean) => {
-    console.log('📈 Dashboard received results:', results?.length, 'leads');
+    console.log('📈 Dashboard received results:', results?.length, 'leads', results);
     
     if (!results || !Array.isArray(results)) {
       console.error('❌ Invalid results received:', results);
