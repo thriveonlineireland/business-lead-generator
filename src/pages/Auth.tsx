@@ -213,7 +213,7 @@ const Auth = () => {
       });
 
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
+        if (error.message === "Invalid login credentials") {
           toast({
             title: "Sign in failed",
             description: (
