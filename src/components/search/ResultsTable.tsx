@@ -18,7 +18,7 @@ interface ResultsTableProps {
 const ResultsTable = ({ leads }: ResultsTableProps) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("quality");
   const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
@@ -70,6 +70,13 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
     const copy = [...filteredLeads];
     copy.sort((a, b) => {
       switch (sortBy) {
+        case "quality":
+          const scoreA = getDataCompleteness(a).score;
+          const scoreB = getDataCompleteness(b).score;
+          if (scoreA !== scoreB) {
+            return scoreB - scoreA; // Higher quality first
+          }
+          return a.name.localeCompare(b.name); // Secondary sort by name
         case "name":
           return a.name.localeCompare(b.name);
         case "email":
@@ -258,16 +265,17 @@ const ResultsTable = ({ leads }: ResultsTableProps) => {
             </Select>
 
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Sort by Name</SelectItem>
-              <SelectItem value="email">Sort by Email</SelectItem>
-              <SelectItem value="phone">Sort by Phone</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quality">Sort by Quality</SelectItem>
+                <SelectItem value="name">Sort by Name</SelectItem>
+                <SelectItem value="email">Sort by Email</SelectItem>
+                <SelectItem value="phone">Sort by Phone</SelectItem>
+              </SelectContent>
+            </Select>
         </div>
       </CardHeader>
 
