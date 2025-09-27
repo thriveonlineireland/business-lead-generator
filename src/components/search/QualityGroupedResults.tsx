@@ -11,25 +11,7 @@ import { BusinessLead } from "@/utils/FirecrawlService";
 import { LeadQualityService } from "@/utils/LeadQualityService";
 import { ExportService } from "@/utils/ExportService";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Download, 
-  Save, 
-  Search, 
-  ExternalLink, 
-  Mail, 
-  Phone, 
-  Globe, 
-  Building, 
-  MapPin, 
-  Instagram,
-  Star,
-  Award,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Crown,
-  Target
-} from "lucide-react";
+import { Download, Save, Search, ExternalLink, Mail, Phone, Globe, Building, MapPin, Instagram, Star, Award, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Info, Crown, Target } from "lucide-react";
 
 interface QualityGroupedResultsProps {
   leads: BusinessLead[];
