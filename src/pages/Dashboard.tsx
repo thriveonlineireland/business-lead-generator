@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SecureSearchForm, SearchFormRef } from "@/components/search/SecureSearchForm";
-import ResultsTable from "@/components/search/ResultsTable";
+import QualityGroupedResults from "@/components/search/QualityGroupedResults";
 import { BusinessLead } from "@/utils/FirecrawlService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -384,8 +384,10 @@ const Dashboard = () => {
                         </Badge>
                       </div>
                     </div>
-                    <ResultsTable 
+                    <QualityGroupedResults 
                       leads={searchResults}
+                      searchLocation={currentSearchParams?.location || ''}
+                      searchBusinessType={currentSearchParams?.businessType || ''}
                     />
                     <ExpandSearchDialog
                       open={showExpandDialog}
@@ -525,8 +527,10 @@ const Dashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <ResultsTable 
+                    <QualityGroupedResults 
                       leads={searchResults}
+                      searchLocation={currentSearchParams?.location || ''}
+                      searchBusinessType={currentSearchParams?.businessType || ''}
                     />
                   </CardContent>
                 </Card>

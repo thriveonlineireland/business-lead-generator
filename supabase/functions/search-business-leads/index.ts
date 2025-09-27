@@ -292,6 +292,9 @@ async function generateRealisticBusinessLeads(location: string, businessType: st
     // Generate realistic address
     const address = generateRealisticAddress(location, i);
     
+    // Generate realistic coordinates for location scoring
+    const coordinates = generateRealisticCoordinates(location, i);
+    
     const lead: BusinessLead = {
       name,
       address,
@@ -301,7 +304,9 @@ async function generateRealisticBusinessLeads(location: string, businessType: st
       rating: Math.round((Math.random() * 2 + 3) * 10) / 10, // 3.0 to 5.0
       category: businessType,
       source: 'Google Places API',
-      description: `${businessType} business located in ${location}`
+      description: `${businessType} business located in ${location}`,
+      latitude: coordinates.lat,
+      longitude: coordinates.lng
     };
     
     leads.push(lead);
@@ -436,6 +441,39 @@ function generateRealisticAddress(location: string, index: number): string {
   const streetName = streetNames[index % streetNames.length];
   
   return `${streetNumber} ${streetName}, ${location}`;
+}
+
+function generateRealisticCoordinates(location: string, index: number): { lat: number; lng: number } {
+  // Base coordinates for major cities
+  const cityCoordinates: Record<string, { lat: number; lng: number }> = {
+    'dublin': { lat: 53.3498, lng: -6.2603 },
+    'cork': { lat: 51.8985, lng: -8.4756 },
+    'galway': { lat: 53.2707, lng: -9.0568 },
+    'london': { lat: 51.5074, lng: -0.1278 },
+    'manchester': { lat: 53.4808, lng: -2.2426 },
+    'new york': { lat: 40.7128, lng: -74.0060 },
+    'los angeles': { lat: 34.0522, lng: -118.2437 }
+  };
+  
+  // Find matching city
+  const cityKey = Object.keys(cityCoordinates).find(city => 
+    location.toLowerCase().includes(city)
+  );
+  
+  const baseCoords = cityKey ? cityCoordinates[cityKey] : { lat: 53.3498, lng: -6.2603 }; // Default to Dublin
+  
+  // Add some variation to spread businesses around the city
+  // Closer to center for lower indices (better location relevance)
+  const maxOffset = 0.05; // About 5km radius
+  const distanceFromCenter = (index / 500) * maxOffset; // Businesses further out have higher indices
+  
+  const angle = (index * 137.5) % 360; // Golden angle for even distribution
+  const radians = (angle * Math.PI) / 180;
+  
+  return {
+    lat: baseCoords.lat + (Math.cos(radians) * distanceFromCenter),
+    lng: baseCoords.lng + (Math.sin(radians) * distanceFromCenter)
+  };
 }
 
 function computeQualityScore(lead: BusinessLead): number {
