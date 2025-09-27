@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Shield, AlertTriangle } from 'lucide-react';
+import { Search, Shield, TriangleAlert as AlertTriangle } from 'lucide-react';
 import { BusinessLead } from '@/utils/FirecrawlService';
 import { BusinessTypeSelector, getBusinessTypeKeywords } from './BusinessTypeSelector';
 import { LocationSelector, getLocationSearchTerms } from './LocationSelector';

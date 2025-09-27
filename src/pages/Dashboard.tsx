@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, BarChart3 } from "lucide-react";
+import { Search, Users, ChartBar as BarChart3 } from "lucide-react";
 import QuickActions from "@/components/search/QuickActions";
 import { ExpandSearchDialog } from "@/components/search/ExpandSearchDialog";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
